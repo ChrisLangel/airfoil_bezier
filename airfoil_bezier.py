@@ -658,12 +658,13 @@ class MainFrame ( wx.Frame ):
         if self.havefile:
             npts   = self.numpoints.GetValue() 
             if self.canrs and self.noiter.GetValue() == False: #If we have a curve already, use those coordinates
-                udis,ldis = self.distform( self.xbu,self.ybu ),self.distform( self.xbl,self.ybl )
+                udis,ldis = self.distform( self.xbu,self.ybu ),self.distform( self.xbl,self.ybl )                
             else:
                 udis,ldis = self.distform( self.xu,self.yu ),self.distform( self.xl,self.yl )
-            upct = udis/(udis+ldis)
+            upct   = udis/(udis+ldis)
             self.ptsu = int(upct*npts)
             self.ptsl = npts - self.ptsu
+            print self.ptsu, self.ptsl
      
     def distform( self,x,y ):
         temp = 0.0
@@ -740,7 +741,7 @@ class MainFrame ( wx.Frame ):
            self.Poutu,self.Poutl,self.xbu,self.ybu,self.xbl,self.ybl = bezier_opt_main(self.ptsu,
                                              self.ptsl,self.itopt,otyp,le_scale,Hk,self.xu,self.yu,
                                              self.xl,self.yl,self.wtu,self.wtl,self.pdis,Pinu,Pinl)      
-           print Hk                                  
+                                            
            self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')   
            self.plotwin.canvas.draw() 
            # save the index of the curves 
