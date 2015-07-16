@@ -13,8 +13,8 @@
       real(kind=8), dimension(ptsl), intent(out) :: xbl,ybl
       real(kind=8), dimension(2,N),  intent(out) :: Poutu,Poutl 
       ! variables used in subroutine
-      integer :: i,j
-      real(kind=8) :: norm,pcte,pcle,lep,tep,rlep,rtep
+      integer :: i,j,mpts
+      real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep
       real(kind=8), dimension(ptsu,N) :: ttempu,tmatu
       real(kind=8), dimension(N,N)    :: a
       real(kind=8), dimension(ptsu,2) :: mptsu 
@@ -25,7 +25,8 @@
       real(kind=8), dimension(2,N)    :: gradvec,Ptemp,stepd
       real(kind=8), dimension(2*N)    :: stepdir,pveck,fltgrdk
       real(kind=8), dimension(2*N,2*N) :: Hku,Hkl  
-      
+      real(kind=8), dimension(:), allocatable :: tms,tx,ty
+      real(kind=8), dimension(:,:), allocatable :: mat,mtemp,dpts
       ! Initialize both Quasi-Newton Matrices
       Hkl = Hk
       Hku = Hk 
@@ -34,41 +35,57 @@
       pcte = pdis(3)
       lep  = pdis(4)
       tep  = pdis(5) 
-      ! Get an initial equi-spaced vector 
-      call gettvec(ptsu,tu)
-      call gettvec(ptsl,tl)
- 
+
       ! get the polynomial basis in matrix form 
       call bernstein_matrix(N,a)
-      
+      ! 
+      if (pdis(1) > 0.0D0) then
+         call gettvec2(ptsu,pcle,pcte,lep,tep,tu)
+         call gettvec2(ptsl,pcle,pcte,lep,tep,tl)
+      else
+         call gettvec(ptsu,tu)
+         call gettvec(ptsl,tl)
+      end if 
       ! This should help with making the leading edge spacing constant
       ! *************************************************************
+      mpts = 10000
+      allocate( tms(mpts),tx(mpts),ty(mpts) )  
+      allocate( mat(mpts,N), mtemp(mpts,N), dpts(mpts,2) ) 
+      ! Get an initial equi-spaced vector with many points
+      call gettvec(mpts,tms)      
+      call tmatrix(tms,mpts,N,mat)
+      mtemp   = matmul(mat, transpose(a)  )  
+      ! Get dense collection of points from upper surface
+      dpts    = matmul(mtemp,transpose(Pinu))
+      tx      = dpts(:,1)
+      ty      = dpts(:,2)
+      call evenspace(mpts,ptsu,tx,ty,tms,tu)
+
+      ! Lower Surface 
+      mtemp   = matmul(mat, transpose(a)  )  
+      ! Get dense collection of points from upper surface
+      dpts    = matmul(mtemp,transpose(Pinl))
+      tx      = dpts(:,1)
+      ty      = dpts(:,2)
+      call evenspace(mpts,ptsl,tx,ty,tms,tl)
+      deallocate( tms,tx,ty )
+      deallocate( mat, mtemp, dpts )
+      !***************************************************************
+      
+      ! generate an (npts x N) matrix [t^N,...,t,1]  
       call tmatrix(tu,ptsu,N,tmatu)
-      ttempu = matmul(tmatu, transpose(a)  )  
+      ttempu  = matmul(tmatu, transpose(a)  )  
       mptsu   = matmul(ttempu,transpose(Pinu))            
       xbu  = mptsu(:,1)
       ybu  = mptsu(:,2)
+
+
       call tmatrix(tl,ptsl,N,tmatl)
       ttempl = matmul(tmatl, transpose(a)  )  
       mptsl   = matmul(ttempl,transpose(Pinl))            
       xbl  = mptsl(:,1)
       ybl  = mptsl(:,2)
 
-      if (pdis(1) > 0.0D0) then
-         call evenspace(ptsu,xbu,ybu,tu,lep,tep,rlep,rtep)      
-         call gettvec2(ptsu,pcle,pcte,rlep,rtep,tu)
-         write(*,*) rlep,rtep 
-         ! Now Lower
-         call evenspace(ptsl,xbl,ybl,tl,lep,tep,rlep,rtep)      
-         call gettvec2(ptsl,pcle,pcte,rlep,rtep,tl)
-         write(*,*) rlep,rtep 
-      end if 
-
-
-      ! Look first at the upper surface  
-      ! generate an (npts x N) matrix [t^N,...,t,1]  
-      call tmatrix(tu,ptsu,N,tmatu)
-      ttempu = matmul(tmatu, transpose(a)  )  
 
       if (otyp == 1) then 
       Ptemp = Pinu
@@ -251,40 +268,36 @@
 !********************************************************************
 !     Trying to even out the leading edge spacing
 !********************************************************************
-      subroutine evenspace(npts,x,y,t,lep,tep,lepr,tepr)  
+      subroutine evenspace(dpts,npts,x,y,tlong,t)  
       implicit none
-      integer :: npts 
-      real(kind=8), dimension(npts), intent(in) :: x,y,t
-      real(kind=8), intent(in) :: lep,tep
-      real(kind=8), intent(out) :: lepr,tepr
-      integer :: i
+      integer :: dpts,npts 
+      real(kind=8), dimension(dpts), intent(in) :: x,y,tlong
+      real(kind=8), dimension(npts), intent(inout) :: t 
+      integer :: i,j
+      real(kind=8), dimension(npts) :: ta  
       real(kind=8) :: distot,dist,ltemp,ttemp 
       logical :: lrch,trch
       
-      lrch = .false.
-      trch = .false.
-
       distot = 0.0D0 
-      do i = 1,npts-1
+      do i = 1,dpts-1
          distot = distot + ((x(i+1)-x(i))**2 + (y(i+1)-y(i))**2)**0.5
       end do
 
-      ltemp = lep*distot 
-      ttemp = tep*distot
-     
-      dist = 0.0D0  
-      do i = 1,npts-1
-         dist = dist + ((x(i+1)-x(i))**2 + (y(i+1)-y(i))**2)**0.5
-         write(*,*) dist , t(i+1)  
-         if (dist > ltemp .and. lrch .eqv. .false.) then
-            lrch = .true.
-            lepr = t(i)
+      j     = 2 
+      ta(1) = 0.0D0
+
+      dist  = 0.0D0  
+      do i = 1,dpts-1
+         dist = dist + ((x(i+1)-x(i))**2 + (y(i+1)-y(i))**2)**0.5 
+         if (dist > (t(j)*distot)) then
+            ta(j) = tlong(i+1)
+            write(*,*) dist,t(j)*distot , tlong(i+1)  
+            j = j+1 
          end if  
-         if (dist > (1.0 - ttemp) .and. trch .eqv. .false.) then
-            trch = .true.
-            tepr = 1.0 - t(i)
-         end if 
       end do 
+   
+      ta(npts) = 1.0D0 
+      t = ta 
 
       end subroutine
          
