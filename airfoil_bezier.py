@@ -728,7 +728,7 @@ class MainFrame ( wx.Frame ):
            # get weighting factor forconstraining the slope of the leading edge            
            mod20     = int(self.flatnose.GetValue())/20
            real20    = float(self.flatnose.GetValue())/20.0
-           le_scale  = real20*10.0**( -(5 - mod20) ) 
+           le_scale  = real20*10.0**( -( 5 - mod20 ) ) 
            
            self.load_sp()   
            Hk = numpy.identity(self.N*2)
@@ -769,12 +769,12 @@ class MainFrame ( wx.Frame ):
         for i in range(len(dydx2u)):
             dydx2u[i] = abs(dydx2u[i])
             if dydx2u[i] > max2d: dydx2u[i] = max2d
-            ds = ((self.xu[i+1]-self.xu[i])**2 + (self.yu[i+1]-self.yu[i])**2)**0.5
+            ds = ((self.xu[i+1]-self.xu[i])**2 + ( self.yu[i+1]-self.yu[i])**2 )**0.5
             utot += dydx2u[i]*ds 
         for i in range(len(dydx2l)):  
             dydx2l[i] = abs(dydx2l[i])            
             if dydx2l[i] > max2d: dydx2l[i] = max2d
-            ds = ((self.xl[i+1]-self.xl[i])**2 + (self.yl[i+1]-self.yl[i])**2)**0.5
+            ds = ((self.xl[i+1]-self.xl[i])**2 + ( self.yl[i+1]-self.yl[i])**2 )**0.5
             ltot += dydx2l[i]*ds   
             
         Pu     = [0.0]            

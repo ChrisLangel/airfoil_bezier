@@ -14,7 +14,7 @@
       real(kind=8), dimension(2,N),  intent(out) :: Poutu,Poutl 
       ! variables used in subroutine
       integer :: i,j
-      real(kind=8) :: norm,pcte,pcle,lep,tep
+      real(kind=8) :: norm,pcte,pcle,lep,tep,rlep,rtep
       real(kind=8), dimension(ptsu,N) :: ttempu,tmatu
       real(kind=8), dimension(N,N)    :: a
       real(kind=8), dimension(ptsu,2) :: mptsu 
@@ -26,27 +26,45 @@
       real(kind=8), dimension(2*N)    :: stepdir,pveck,fltgrdk
       real(kind=8), dimension(2*N,2*N) :: Hku,Hkl  
       
+      ! Initialize both Quasi-Newton Matrices
       Hkl = Hk
-      Hku = Hk   
+      Hku = Hk 
+      ! Store info about spacing  
       pcle = pdis(2)
       pcte = pdis(3)
       lep  = pdis(4)
-      tep  = pdis(5)  
-      if (pdis(1) > 0.0D0) then 
-         call gettvec2(ptsu,pcle,pcte,lep,tep,tu)
-         call gettvec2(ptsl,pcle,pcte,lep,tep,tl)
-      else
-         call gettvec(ptsu,tu)
-         call gettvec(ptsl,tl)
-      end if
-      !do i = 1,npts
-      !   if (i < npts) then
-      !      write(*,*) tu(i), (tu(i+1) - tu(i))
-      !   end if
-      !end do
-
+      tep  = pdis(5) 
+      ! Get an initial equi-spaced vector 
+      call gettvec(ptsu,tu)
+      call gettvec(ptsl,tl)
+ 
       ! get the polynomial basis in matrix form 
-      call bernstein_matrix(N,a)  
+      call bernstein_matrix(N,a)
+      
+      ! This should help with making the leading edge spacing constant
+      ! *************************************************************
+      call tmatrix(tu,ptsu,N,tmatu)
+      ttempu = matmul(tmatu, transpose(a)  )  
+      mptsu   = matmul(ttempu,transpose(Pinu))            
+      xbu  = mptsu(:,1)
+      ybu  = mptsu(:,2)
+      call tmatrix(tl,ptsl,N,tmatl)
+      ttempl = matmul(tmatl, transpose(a)  )  
+      mptsl   = matmul(ttempl,transpose(Pinl))            
+      xbl  = mptsl(:,1)
+      ybl  = mptsl(:,2)
+
+      if (pdis(1) > 0.0D0) then
+         call evenspace(ptsu,xbu,ybu,tu,lep,tep,rlep,rtep)      
+         call gettvec2(ptsu,pcle,pcte,rlep,rtep,tu)
+         write(*,*) rlep,rtep 
+         ! Now Lower
+         call evenspace(ptsl,xbl,ybl,tl,lep,tep,rlep,rtep)      
+         call gettvec2(ptsl,pcle,pcte,rlep,rtep,tl)
+         write(*,*) rlep,rtep 
+      end if 
+
+
       ! Look first at the upper surface  
       ! generate an (npts x N) matrix [t^N,...,t,1]  
       call tmatrix(tu,ptsu,N,tmatu)
@@ -228,6 +246,53 @@
       tu(npts) = 1.0D0 
 
       end subroutine
+
+
+!********************************************************************
+!     Trying to even out the leading edge spacing
+!********************************************************************
+      subroutine evenspace(npts,x,y,t,lep,tep,lepr,tepr)  
+      implicit none
+      integer :: npts 
+      real(kind=8), dimension(npts), intent(in) :: x,y,t
+      real(kind=8), intent(in) :: lep,tep
+      real(kind=8), intent(out) :: lepr,tepr
+      integer :: i
+      real(kind=8) :: distot,dist,ltemp,ttemp 
+      logical :: lrch,trch
+      
+      lrch = .false.
+      trch = .false.
+
+      distot = 0.0D0 
+      do i = 1,npts-1
+         distot = distot + ((x(i+1)-x(i))**2 + (y(i+1)-y(i))**2)**0.5
+      end do
+
+      ltemp = lep*distot 
+      ttemp = tep*distot
+     
+      dist = 0.0D0  
+      do i = 1,npts-1
+         dist = dist + ((x(i+1)-x(i))**2 + (y(i+1)-y(i))**2)**0.5
+         write(*,*) dist , t(i+1)  
+         if (dist > ltemp .and. lrch .eqv. .false.) then
+            lrch = .true.
+            lepr = t(i)
+         end if  
+         if (dist > (1.0 - ttemp) .and. trch .eqv. .false.) then
+            trch = .true.
+            tepr = 1.0 - t(i)
+         end if 
+      end do 
+
+      end subroutine
+         
+       
+           
+
+
+
 
 !********************************************************************
 !     Subroutine that returns matrix [t^N ... t,1] x npts
