@@ -369,7 +369,7 @@ class MainFrame ( wx.Frame ):
     def __init__( self, parent ):
         wx.Frame.__init__( self, parent, id = wx.ID_ANY, 
                            title = "Bezier Airfoil Smoother", pos = wx.DefaultPosition, 
-                           size = wx.Size( 350,650 ),
+                           size = wx.Size( 350,700 ),
                            style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
           
         self.havefile = False      

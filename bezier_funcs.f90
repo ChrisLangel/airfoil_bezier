@@ -274,8 +274,8 @@
       real(kind=8), dimension(dpts), intent(in) :: x,y,tlong
       real(kind=8), dimension(npts), intent(inout) :: t 
       integer :: i,j
-      real(kind=8), dimension(npts) :: ta  
-      real(kind=8) :: distot,dist,ltemp,ttemp 
+      real(kind=8), dimension(npts) :: ta 
+      real(kind=8) :: distot,dist,ltemp,ttemp,distm,ai,bi,ci
       logical :: lrch,trch
       
       distot = 0.0D0 
@@ -288,10 +288,14 @@
 
       dist  = 0.0D0  
       do i = 1,dpts-1
-         dist = dist + ((x(i+1)-x(i))**2 + (y(i+1)-y(i))**2)**0.5 
+         distm = dist 
+         dist  = dist + ((x(i+1)-x(i))**2 + (y(i+1)-y(i))**2)**0.5 
          if (dist > (t(j)*distot)) then
-            ta(j) = tlong(i+1)
-            write(*,*) dist,t(j)*distot , tlong(i+1)  
+            ai = distm
+            bi = dist
+            ci = t(j)*distot 
+            ta(j)=tlong(i)*((bi-ci)/(bi-ai)) + 
+     &            tlong(i+1)*(1.0D0-((bi-ci)/(bi-ai)))
             j = j+1 
          end if  
       end do 
