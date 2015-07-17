@@ -205,6 +205,9 @@ class plotwindow( wx.Frame ):
 
     def on_release( self,event ):
         self.movecp = False
+        self.parent.itopt = 0
+        self.parent.redraw = True
+        self.parent.gen_bez( event )
                
     def showwin( self, event ):
         self.canvas.draw()
@@ -374,6 +377,7 @@ class MainFrame ( wx.Frame ):
         self.bezcurve = False
         self.cpshown  = False
         self.dershown = False
+        self.redraw   = False
         BoxSizer01 = wx.BoxSizer( wx.VERTICAL )
         # add all the wx widgets to this class 
         self.fileline    = wx.TextCtrl(self, -1,
@@ -679,7 +683,7 @@ class MainFrame ( wx.Frame ):
         if self.havefile:
            self.bezcurve = True
            self.N = self.order.GetValue() 
-           if self.noiter.GetValue() == False:
+           if self.noiter.GetValue() == False and self.redraw == False:
                self.itopt = self.optits.GetValue()
            # Look for initial estimate for control points, upper surface first 
            Pinu    = [[0.0 for i in range(self.N)] for j in range(2)]
@@ -721,9 +725,11 @@ class MainFrame ( wx.Frame ):
            
 
            # see if we are using existing control points
-           if (self.restart.GetValue() or self.noiter.GetValue()) and self.canrs:
+           if (((self.restart.GetValue() or self.noiter.GetValue()) and self.canrs)
+               or self.redraw):
                Pinl = self.Poutl
-               Pinu = self.Poutu 
+               Pinu = self.Poutu
+               self.redraw = False
 
            # get weighting factor forconstraining the slope of the leading edge            
            mod20     = int(self.flatnose.GetValue())/20
@@ -836,8 +842,10 @@ class MainFrame ( wx.Frame ):
             if i > 3:
                del self.plotwin.axes.lines[i]   
         self.plotwin.pointsel = False
-        self.cpshown = False
         self.bezcurve = False
+        if self.cpshown:
+            self.cpshown = False
+            self.show_cpts( event )            
         self.plotwin.canvas.draw()
         
             
@@ -880,9 +888,11 @@ class MainFrame ( wx.Frame ):
             self.plotwin.axes.plot(self.xl, self.yl, 'ko') 
             self.plotwin.axes.plot(self.xu,self.yu,'g--',self.xl,self.yl,'g--')  
             self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')
+            if self.cpshown:
+                self.cpshown = False
+                self.show_cpts( event )
             self.plotwin.canvas.draw() 
             self.dershown = False
-            self.cpshown  = False
             self.pointsel = False
         else:
             if self.havefile:
@@ -902,8 +912,7 @@ class MainFrame ( wx.Frame ):
                 self.plotwin.axes.set_ylim( [-4,4] )
                 self.plotwin.canvas.draw()
                 self.dershown = True
-                self.cpshown = False
-        
+
         
     def print_coords( self,event ):
         if self.canrs:
