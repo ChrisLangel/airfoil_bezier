@@ -48,7 +48,7 @@
       end if 
       ! This should help with making the leading edge spacing constant
       ! *************************************************************
-      mpts = 10000
+      mpts = 15000
       allocate( tms(mpts),tx(mpts),ty(mpts) )  
       allocate( mat(mpts,N), mtemp(mpts,N), dpts(mpts,2) ) 
       ! Get an initial equi-spaced vector with many points

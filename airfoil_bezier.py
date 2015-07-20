@@ -43,13 +43,10 @@ class plotwindow( wx.Frame ):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.canvas, 1, wx.LEFT | wx.TOP | wx.GROW)
         # connect mouse events to functions  
-        self.fig.canvas.mpl_connect('button_press_event',  self.onpick    )
-        self.fig.canvas.mpl_connect('scroll_event',        self.onscroll  )
-        self.fig.canvas.mpl_connect('motion_notify_event', self.on_motion)
+        self.fig.canvas.mpl_connect('button_press_event',   self.on_pick   )
+        self.fig.canvas.mpl_connect('scroll_event',         self.on_scroll )
+        self.fig.canvas.mpl_connect('motion_notify_event',  self.on_motion )
         self.fig.canvas.mpl_connect('button_release_event', self.on_release)
-        
-
-
         self.add_toolbar()  # comment this out for no matplotlib toolbar
         
         self.SetSizer(self.sizer)
@@ -87,7 +84,7 @@ class plotwindow( wx.Frame ):
 # Function that is called when mouse is clicked on figure
 # ------------------------------------------------------------------------
         
-    def onpick( self, event ):
+    def on_pick( self, event ):
         # see what button is pushed 
         if event.button == 1:    # Left mouse button 
             self.on_leftclick(event)
@@ -98,7 +95,7 @@ class plotwindow( wx.Frame ):
 # Function that will zoom in and out using mouse wheel
 # ------------------------------------------------------------------------
 
-    def onscroll( self, event ):
+    def on_scroll( self, event ):
         scale = 1.15 # How fast we want to zoom in and out 
         if event.button == 'down':
             factor = 1/scale
@@ -189,7 +186,7 @@ class plotwindow( wx.Frame ):
                 self.movecp   = True
             
 # ------------------------------------------------------------------------
-# Function that will move control point on drag
+# Functions that will move control point on drag
 # ------------------------------------------------------------------------
     def on_motion( self,event ):
         if self.movecp: 
@@ -205,6 +202,7 @@ class plotwindow( wx.Frame ):
 
     def on_release( self,event ):
         self.movecp = False
+        # this bit of code redraws the bezier curve after moving a control point 
         self.parent.itopt = 0
         self.parent.redraw = True
         self.parent.gen_bez( event )
@@ -299,7 +297,10 @@ class PointDistribution( wx.Frame ):
         
         self.SetSizer( BoxSizer01 )
         self.Layout()
-    
+
+# ------------------------------------------------------------------------
+# Functions here just enable/disable selections
+# ------------------------------------------------------------------------    
     def on_auto(self,event):
         if self.check_auto.GetValue():            
             self.check_clust.SetValue( False )
@@ -315,8 +316,7 @@ class PointDistribution( wx.Frame ):
         else:
             self.check_auto.SetValue( True )
             self.enab_all( False )
-        
-        
+                
     def enab_all( self, val ):
         self.pctple.Enable( val )
         self.pctled.Enable( val )
@@ -357,13 +357,7 @@ class PointDisWindow(PointDistribution):
         self.parent = parent                     
 
 
-
-
-
 ############################################################################
-
-
-
 # The actual frame for the application 
 class MainFrame ( wx.Frame ):
     def __init__( self, parent ):
@@ -560,6 +554,9 @@ class MainFrame ( wx.Frame ):
         self.SetSizer( BoxSizer01 ) 
         self.Layout()
 
+# ------------------------------------------------------------------------
+# Show the window that allows users to select points
+# ------------------------------------------------------------------------
     def set_dis( self,event ):
         self.pointwin.Show() 
 
@@ -570,7 +567,9 @@ class MainFrame ( wx.Frame ):
 	if dialog.ShowModal() == wx.ID_OK:
 		self.fileline.SetValue(dialog.GetPath())
  
-
+# ------------------------------------------------------------------------
+# Function that reads selected file and loads the airfoil coordinates to the GUI
+# ------------------------------------------------------------------------
     def on_load( self,event ):
         self.plotwin.Show() 
         self.havefile = False
@@ -611,7 +610,10 @@ class MainFrame ( wx.Frame ):
            self.canrs = False
            self.noiter.SetValue( False )
            self.optits.Enable( True )
-           
+
+# ------------------------------------------------------------------------
+# Function that reads control point file and sets those  
+# ------------------------------------------------------------------------           
     def on_loadcp( self,event ):
         wildcard = "All files (*.*)|*.*"
         dialog = wx.FileDialog(None, "Choose a file", os.getcwd(), "", wildcard, wx.OPEN)	
@@ -634,7 +636,9 @@ class MainFrame ( wx.Frame ):
            self.on_noiter( event )
            self.canrs = True
 
-        
+# ------------------------------------------------------------------------
+# Function that is called when the no iteration check mark is selected
+# ------------------------------------------------------------------------        
     def on_noiter( self,event ):
         if self.noiter.GetValue():
             self.optits.Enable( False )
@@ -643,6 +647,9 @@ class MainFrame ( wx.Frame ):
             self.optits.Enable( True )
 
 
+# ------------------------------------------------------------------------
+# Function that changes weight of a selected points 
+# ------------------------------------------------------------------------
     def chgwt( self,event ):
         if (self.plotwin.pointsel and self.havefile):
             if self.plotwin.u_or_l == 'u':
@@ -669,6 +676,7 @@ class MainFrame ( wx.Frame ):
             self.ptsu = int(upct*npts)
             self.ptsl = npts - self.ptsu
             print self.ptsu, self.ptsl
+     
      
     def distform( self,x,y ):
         temp = 0.0
@@ -702,7 +710,7 @@ class MainFrame ( wx.Frame ):
                for i in range(len(self.Pinlx)-2):
                    Pinl[0][i+1] = self.Pinlx[i+1]
                    Pinl[1][i+1] = 1.2*numpy.interp(self.Pinlx[i+1],self.xl,self.yl )
-           else:                        
+           else:  #even spacing                   
                xmin,xmax = numpy.amin( self.xu ), numpy.amax( self.xu )
                # The first spacing will be the smallest 
                firstsp = ((xmax-xmin)/float(self.N-1))/2
@@ -760,69 +768,54 @@ class MainFrame ( wx.Frame ):
                 self.show_cpts( event )
 
 
+    def compders( self,x,y ):
+        dy,dx   = numpy.diff( y ), numpy.diff( x )
+        dydx    = numpy.divide(dy,dx)    
+        ddy,ddx = numpy.diff( dydx ), numpy.diff( x[:-1] )
+        dydx2   = numpy.divide(ddy,ddx)
+        return dydx,dydx2 
+
+    def compmag( self,x,y,dydx2,max2d):
+        tot = 0.0
+        for i in range(len(dydx2)):
+            dydx2[i] = abs(dydx2[i])
+            if dydx2[i] > max2d: dydx2[i] = max2d
+            ds = ((x[i+1]-x[i])**2 + ( y[i+1]-y[i])**2 )**0.5
+            tot += dydx2[i]*ds 
+        return tot
+        
+        
+    def setpts( self,x,y,dydx2,tot,N ):
+        P0     = [0.0]            
+        ptsrm  = N - 2
+        thresh = tot/ptsrm
+        ucur   = 0.0          
+        ilast  = 0
+        for i in range(len(x)-2):
+            if ptsrm > 0:
+                ds = ((x[i+1]-x[i])**2 + (y[i+1]-y[i])**2)**0.5
+                ucur += ds*dydx2[i]
+                if ucur > thresh and ilast < i-1 :
+                    P0.append(x[i+1])
+                    ptsrm = ptsrm - 1
+                    tot = tot - ucur
+                    if ptsrm > 0.0:
+                        thresh = tot/(ptsrm+1)
+                    ucur = 0.0
+                    ilast = i 
+        P0.append(x[-1])            
+        return P0                
+
     def get_p0( self ):
         # set a max for the second derivative
         max2d   = 7.0 
-        dyu,dxu = numpy.diff( self.yu ), numpy.diff( self.xu )
-        dydxu   = numpy.divide(dyu,dxu)
-        dyl,dxl = numpy.diff( self.yl ), numpy.diff( self.xl )
-        dydxl   = numpy.divide(dyl,dxl)
-        ddyu,ddxu  = numpy.diff( dydxu ), numpy.diff( self.xu[:-1] )
-        dydx2u     = numpy.divide(ddyu,ddxu)
-        ddyl,ddxl  = numpy.diff( dydxl ), numpy.diff( self.xl[:-1] )
-        dydx2l     = numpy.divide(ddyl,ddxl)
-        utot,ltot  = 0.0,0.0        
-        for i in range(len(dydx2u)):
-            dydx2u[i] = abs(dydx2u[i])
-            if dydx2u[i] > max2d: dydx2u[i] = max2d
-            ds = ((self.xu[i+1]-self.xu[i])**2 + ( self.yu[i+1]-self.yu[i])**2 )**0.5
-            utot += dydx2u[i]*ds 
-        for i in range(len(dydx2l)):  
-            dydx2l[i] = abs(dydx2l[i])            
-            if dydx2l[i] > max2d: dydx2l[i] = max2d
-            ds = ((self.xl[i+1]-self.xl[i])**2 + ( self.yl[i+1]-self.yl[i])**2 )**0.5
-            ltot += dydx2l[i]*ds   
-            
-        Pu     = [0.0]            
-        ptsrm  = self.N - 2
-        thresh = utot/ptsrm
-        ucur   = 0.0          
-        ilast  = 0
-        for i in range(len(self.xu)-2):
-            if ptsrm > 0:
-                ds = ((self.xu[i+1]-self.xu[i])**2 + (self.yu[i+1]-self.yu[i])**2)**0.5
-                ucur += ds*dydx2u[i]
-                if ucur > thresh and ilast < i-1 :
-                    Pu.append(self.xu[i+1])
-                    ptsrm = ptsrm - 1
-                    utot = utot - ucur
-                    if ptsrm > 0.0:
-                        thresh = utot/(ptsrm+1)
-                    ucur = 0.0
-                    ilast = i 
-        Pu.append(self.xu[-1])            
-        self.Pinux = Pu         
-        
-        Pl     = [0.0]            
-        ptsrm  = self.N - 2
-        thresh = ltot/ptsrm
-        ucur   = 0.0          
-        ilast  = 0 
-        for i in range(len(self.xl)-2):
-            if ptsrm > 0:
-                ds = ((self.xl[i+1]-self.xl[i])**2 + (self.yl[i+1]-self.yl[i])**2)**0.5
-                ucur += ds*dydx2l[i]
-                if ucur > thresh and ilast < i-1:
-                    Pl.append(self.xl[i+1])
-                    ptsrm = ptsrm - 1
-                    ltot = ltot - ucur
-                    if ptsrm > 0.0:
-                        thresh = ltot/(ptsrm+1)
-                    ucur = 0.0
-                    ilast = i 
-        Pl.append(self.xl[-1])            
-        self.Pinlx = Pl      
-        
+        # compute derivatives 
+        dydxu, dydx2u = self.compders( self.xu, self.yu )
+        dydxl, dydx2l = self.compders( self.xl, self.yl )
+        utot          = self.compmag( self.xu, self.yu, dydx2u, max2d)
+        ltot          = self.compmag( self.xl, self.yl, dydx2l, max2d)
+        self.Pinux = self.setpts( self.xu,self.yu,dydx2u,utot,self.N )
+        self.Pinlx = self.setpts( self.xl,self.yl,dydx2l,ltot,self.N )
 
 
     def load_sp( self ):
@@ -896,14 +889,8 @@ class MainFrame ( wx.Frame ):
             self.pointsel = False
         else:
             if self.havefile:
-                dyu,dxu = numpy.diff( self.ybu ), numpy.diff( self.xbu )
-                dydxu   = numpy.divide(dyu,dxu)
-                dyl,dxl = numpy.diff( self.ybl ), numpy.diff( self.xbl )
-                dydxl   = numpy.divide(dyl,dxl)
-                ddyu,ddxu  = numpy.diff( dydxu ), numpy.diff( self.xbu[:-1] )
-                dydx2u     = numpy.divide(ddyu,ddxu)
-                ddyl,ddxl  = numpy.diff( dydxl ), numpy.diff( self.xbl[:-1] )
-                dydx2l     = numpy.divide(ddyl,ddxl)            
+                dydxu,dydx2u = self.compders( self.xbu, self.ybu )
+                dydxl,dydx2l = self.compders( self.xbl, self.ybl )                
                 self.plotwin.axes.cla()
                 self.plotwin.axes.plot(self.xbu[:-1],dydxu,'g',  self.xbl[:-1],dydxl,'g--')
                 self.plotwin.axes.plot(self.xbu[:-2],dydx2u,'b', self.xbl[:-2],dydx2l, 'b--')
