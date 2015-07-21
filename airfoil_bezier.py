@@ -160,6 +160,8 @@ class plotwindow( wx.Frame ):
 
     def on_leftclick( self, event ):
         x,y = event.xdata, event.ydata
+        if self.pointsel:
+            del self.axes.lines[self.ponind]
         if (self.parent.canrs and self.parent.cpshown):
             xus,yus = self.parent.xcu, self.parent.ycu  
             xls,yls = self.parent.xcl, self.parent.ycl  
@@ -201,12 +203,13 @@ class plotwindow( wx.Frame ):
             self.parent.show_cpts( event )                
 
     def on_release( self,event ):
-        self.movecp = False
+        if self.movecp:
         # this bit of code redraws the bezier curve after moving a control point 
-        self.parent.itopt = 0
-        self.parent.redraw = True
-        self.parent.gen_bez( event )
-               
+            self.parent.itopt = 0
+            self.parent.redraw = True
+            self.parent.gen_bez( event )
+        self.movecp = False               
+
     def showwin( self, event ):
         self.canvas.draw()
 
@@ -658,13 +661,19 @@ class MainFrame ( wx.Frame ):
                 self.wtl[self.plotwin.pind] = self.weight.GetValue()
 
 
+# ------------------------------------------------------------------------
+# Function that sets weight of all points to 1.0
+# ------------------------------------------------------------------------
     def reset_wt( self,event ):
         if self.havefile:
            self.wtu = [1.0 for i in range(len(self.xu))]
            self.wtl = [1.0 for i in range(len(self.xl))]
            self.weight.SetValue(1)
 
-            
+
+# ------------------------------------------------------------------------
+# Function that tries to evenly divide points by curvilinear distance 
+# ------------------------------------------------------------------------           
     def split_pts( self ):
         if self.havefile:
             npts   = self.numpoints.GetValue() 
@@ -676,15 +685,11 @@ class MainFrame ( wx.Frame ):
             self.ptsu = int(upct*npts)
             self.ptsl = npts - self.ptsu
             print self.ptsu, self.ptsl
-     
-     
-    def distform( self,x,y ):
-        temp = 0.0
-        for i in range(len(x)-1):
-            ds = ( (x[i+1] - x[i])**2 + (y[i+1] - y[i])**2 )**0.5
-            temp = temp + ds
-        return temp
-    
+            
+            
+# ------------------------------------------------------------------------     
+# Function that actually calls the fortran routine to generate the bezier curves 
+# ------------------------------------------------------------------------       
     def gen_bez( self,event ):
         self.plotwin.Show()
         self.split_pts()
@@ -715,21 +720,21 @@ class MainFrame ( wx.Frame ):
                # The first spacing will be the smallest 
                firstsp = ((xmax-xmin)/float(self.N-1))/2
                Pinu[0][1]  = xmin + firstsp
-               Pinu[1][1]  = 1.2*numpy.interp((xmin + firstsp),self.xu,self.yu )
+               Pinu[1][1]  = 1.1*numpy.interp((xmin + firstsp),self.xu,self.yu )
                initsp  =  (xmax-xmin-firstsp)/(self.N-2)
                for i in range(self.N-3):
                    Pinu[0][i+2] = xmin+firstsp + initsp*(i+1)    
-                   Pinu[1][i+2] = 1.2*numpy.interp((xmin+firstsp+ initsp*(i+1)),self.xu,self.yu )
+                   Pinu[1][i+2] = 1.1*numpy.interp((xmin+firstsp+ initsp*(i+1)),self.xu,self.yu )
                #--------------------------------------------------------------------------
                xmin,xmax = numpy.amin( self.xl ), numpy.amax( self.xl )
                # The first spacing will be the smallest 
                firstsp = ((xmax-xmin)/float(self.N-1))/2
                Pinl[0][1]  = xmin + firstsp
-               Pinl[1][1]  = 1.2*numpy.interp((xmin + firstsp),self.xl,self.yl )
+               Pinl[1][1]  = 1.1*numpy.interp((xmin + firstsp),self.xl,self.yl )
                initsp  =  (xmax-xmin-firstsp)/(self.N-2)
                for i in range(self.N-3):
                    Pinl[0][i+2] = xmin+firstsp + initsp*(i+1)    
-                   Pinl[1][i+2] = 1.2*numpy.interp((xmin+firstsp + initsp*(i+1)),self.xl,self.yl )           
+                   Pinl[1][i+2] = 1.1*numpy.interp((xmin+firstsp + initsp*(i+1)),self.xl,self.yl )           
            
 
            # see if we are using existing control points
@@ -766,8 +771,15 @@ class MainFrame ( wx.Frame ):
            if self.cpshown:
                 self.show_cpts( event )
                 self.show_cpts( event )
+                
 
-
+    def distform( self,x,y ):
+        temp = 0.0
+        for i in range(len(x)-1):
+            ds = ( (x[i+1] - x[i])**2 + (y[i+1] - y[i])**2 )**0.5
+            temp = temp + ds
+        return temp
+    
     def compders( self,x,y ):
         dy,dx   = numpy.diff( y ), numpy.diff( x )
         dydx    = numpy.divide(dy,dx)    
@@ -806,6 +818,9 @@ class MainFrame ( wx.Frame ):
         P0.append(x[-1])            
         return P0                
 
+# ------------------------------------------------------------------------
+# Function that tries to divide initial control points
+# ------------------------------------------------------------------------ 
     def get_p0( self ):
         # set a max for the second derivative
         max2d   = 7.0 
@@ -818,6 +833,9 @@ class MainFrame ( wx.Frame ):
         self.Pinlx = self.setpts( self.xl,self.yl,dydx2l,ltot,self.N )
 
 
+# ------------------------------------------------------------------------
+# Function that loads values for point distribution from GUI into array 
+# ------------------------------------------------------------------------ 
     def load_sp( self ):
         self.pdis = [1.0 for i in range(5)]
         if self.pointwin.check_auto.GetValue():
@@ -827,7 +845,10 @@ class MainFrame ( wx.Frame ):
         self.pdis[3] = self.pointwin.pctled.GetValue()/100.0
         self.pdis[4] = self.pointwin.pctted.GetValue()/100.0
         
-        
+
+# ------------------------------------------------------------------------
+# Function that removes all drawn bezier curves 
+# ------------------------------------------------------------------------         
     def rm_bcurves( self,event ):
         if self.cpshown:
             self.del_cpts()
@@ -841,7 +862,9 @@ class MainFrame ( wx.Frame ):
             self.show_cpts( event )            
         self.plotwin.canvas.draw()
         
-            
+# ------------------------------------------------------------------------
+# Function that draws control points 
+# ------------------------------------------------------------------------            
     def show_cpts( self,event ):
         self.plotwin.Show()
         if self.cpshown:
@@ -861,7 +884,9 @@ class MainFrame ( wx.Frame ):
                 self.cpshown = True 
 
 
-            
+# ------------------------------------------------------------------------
+# Function that removes control points from axis 
+# ------------------------------------------------------------------------             
     def del_cpts( self ):
          for j in range(2):
              ind = self.cpcurves[j]
@@ -872,7 +897,9 @@ class MainFrame ( wx.Frame ):
              del self.plotwin.axes.lines[ind]
              self.plotwin.canvas.draw()
 
-        
+# ------------------------------------------------------------------------
+# Function that shows the first and second derivative on the axis
+# ------------------------------------------------------------------------          
     def comp_der( self,event ):
         self.plotwin.Show()
         if self.dershown:
@@ -900,7 +927,9 @@ class MainFrame ( wx.Frame ):
                 self.plotwin.canvas.draw()
                 self.dershown = True
 
-        
+# ------------------------------------------------------------------------
+# Function saves the current coordinates to a file
+# ------------------------------------------------------------------------           
     def print_coords( self,event ):
         if self.canrs:
             savef = False
@@ -927,7 +956,10 @@ class MainFrame ( wx.Frame ):
                     writestr = ''.join([str(xout[i]),'      ', str(yout[i]),'\n'])   
                     os.write(fd,writestr)
     
-    
+
+# ------------------------------------------------------------------------
+# Function saves the current control points to a file
+# ------------------------------------------------------------------------    
     def print_cpts( self,event ):
         if self.canrs:
             savef = False
@@ -954,7 +986,9 @@ class MainFrame ( wx.Frame ):
                     writestr = ''.join([str(xout[i]),'      ', str(yout[i]),'\n'])   
                     os.write(fd,writestr)
      
-     
+# ------------------------------------------------------------------------
+# Function saves the current coordinates to a p3d file 
+# ------------------------------------------------------------------------       
     def on_p3d( self,event ):
         if self.canrs:
             savef     = False
@@ -981,7 +1015,9 @@ class MainFrame ( wx.Frame ):
                 
 
                            
-   
+# ------------------------------------------------------------------------
+# Function that tries to break up airfoil coordinates into upper and lower surface
+# ------------------------------------------------------------------------     
     def split_coords( self ):  
            xmin,xmax = numpy.amin( self.xfull ), numpy.amax( self.xfull )
            ind = 0 
