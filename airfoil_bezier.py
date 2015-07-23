@@ -761,7 +761,8 @@ class MainFrame ( wx.Frame ):
                                              self.ptsl,self.itopt,otyp,le_scale,Hk,self.xu,self.yu,
                                              self.xl,self.yl,self.wtu,self.wtl,self.pdis,Pinu,Pinl)      
                                             
-           self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')   
+           self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')
+	   self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
            self.plotwin.canvas.draw() 
            # save the index of the curves 
            temp = len(self.plotwin.axes.lines) - 1
