@@ -160,8 +160,6 @@ class plotwindow( wx.Frame ):
 
     def on_leftclick( self, event ):
         x,y = event.xdata, event.ydata
-        if self.pointsel:
-            del self.axes.lines[self.ponind]
         if (self.parent.canrs and self.parent.cpshown):
             xus,yus = self.parent.xcu, self.parent.ycu  
             xls,yls = self.parent.xcl, self.parent.ycl  
@@ -191,7 +189,12 @@ class plotwindow( wx.Frame ):
 # Functions that will move control point on drag
 # ------------------------------------------------------------------------
     def on_motion( self,event ):
-        if self.movecp: 
+        if self.movecp:            
+	    if self.pointsel:
+	        self.parent.cpcurves.append( self.ponind ) 
+                self.parent.cpcurves.sort() 
+                self.parent.cpcurves.reverse()
+	        self.pointsel = False
             self.parent.del_cpts()
             self.parent.cpshown = False
             if self.u_or_l == 'u':
@@ -202,7 +205,7 @@ class plotwindow( wx.Frame ):
                 self.parent.Poutl[1][self.cpind] = event.ydata 
             self.parent.show_cpts( event )                
 
-    def on_release( self,event ):
+    def on_release( self,event ):    
         if self.movecp:
         # this bit of code redraws the bezier curve after moving a control point 
             self.parent.itopt = 0
@@ -889,7 +892,7 @@ class MainFrame ( wx.Frame ):
 # Function that removes control points from axis 
 # ------------------------------------------------------------------------             
     def del_cpts( self ):
-         for j in range(2):
+         for j in range(len(self.cpcurves)):
              ind = self.cpcurves[j]
              if len( self.bcurves ) > 0:
                 for i in range(len(self.bcurves)):
