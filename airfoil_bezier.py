@@ -191,6 +191,7 @@ class plotwindow( wx.Frame ):
     def on_motion( self,event ):
         if self.movecp:            
 	    if self.pointsel:
+	        # Wipe out the point selected 
 	        self.parent.cpcurves.append( self.ponind ) 
                 self.parent.cpcurves.sort() 
                 self.parent.cpcurves.reverse()
