@@ -929,6 +929,8 @@ class MainFrame ( wx.Frame ):
                 labels = ['$dy/dx$ (upper)', '$dy/dx$ (lower)','$d^2 y/dx^2$ (upper)', '$d^2y/dx^2$ (lower)']
                 self.plotwin.axes.legend( labels )
                 self.plotwin.axes.set_ylim( [-4,4] )
+		self.plotwin.axes.set_xlim( [0,1] )
+		self.plotwin.axes.set_aspect( 'auto', 'datalim')
                 self.plotwin.canvas.draw()
                 self.dershown = True
 
