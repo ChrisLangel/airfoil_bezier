@@ -1,0 +1,6 @@
+#!/bin/bash
+
+
+rm bezier_funcs2.pyf 
+f2py -h bezier_funcs2.pyf -m bezier_funcs2 bezier_funcs2.f90
+f2py -c bezier_funcs2.pyf bezier_funcs2.f90
