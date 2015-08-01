@@ -599,12 +599,17 @@ class MainFrame ( wx.Frame ):
            self.plotwin.axes.cla()         
            # now try and split the arrays into the upper and lower surface
            self.split_coords()
-           self.plotwin.axes.plot(self.xu1, self.yu1, 'ko',self.xu2, self.yu2, 'ko') 
-           self.plotwin.axes.plot(self.xl1, self.yl1, 'ko',self.xl2, self.yl2, 'ko') 
-           self.plotwin.axes.plot(self.xu,self.yu,'g--',self.xl,self.yl,'g--')      
+           self.plotwin.axes.plot(self.xu1, self.yu1, 'ko', self.xu2, self.yu2, 'ko') 
+           self.plotwin.axes.plot(self.xl1, self.yl1, 'ko', self.xl2, self.yl2, 'ko') 
+           self.plotwin.axes.plot(self.xu,  self.yu, 'g--', self.xl,  self.yl,'g--')      
            self.plotwin.canvas.draw() 
-           self.wtu = [1.0 for i in range(len(self.xu))]
-           self.wtl = [1.0 for i in range(len(self.xl))]
+           # Set the default weight to 1.0 
+           self.wtu  = [1.0 for i in range(len(self.xu))]
+           self.wtl  = [1.0 for i in range(len(self.xl))]
+           self.wtu1 = [1.0 for i in range(len(self.xu1))]
+           self.wtl1 = [1.0 for i in range(len(self.xl1))]
+           self.wtu2 = [1.0 for i in range(len(self.xu2))]
+           self.wtl2 = [1.0 for i in range(len(self.xl2))]
            # Flag that we cannot restart this case
            self.canrs = False
            self.noiter.SetValue( False )
@@ -678,14 +683,19 @@ class MainFrame ( wx.Frame ):
         if self.havefile:
             npts   = self.numpoints.GetValue() 
             if self.canrs and self.noiter.GetValue() == False: #If we have a curve already, use those coordinates
-                udis,ldis = self.distform( self.xbu,self.ybu ),self.distform( self.xbl,self.ybl )                
+                udis,ldis = self.distform( self.xbu,self.ybu ),self.distform( self.xbl,self.ybl )       
+                udis1,ldis1 = self.distform( self.xu1,self.yu1 ),self.distform( self.xl1,self.yl1 )
+                udis2,ldis2 = self.distform( self.xu2,self.yu2 ),self.distform( self.xl2,self.yl2 )
             else:
                 udis1,ldis1 = self.distform( self.xu1,self.yu1 ),self.distform( self.xl1,self.yl1 )
                 udis2,ldis2 = self.distform( self.xu2,self.yu2 ),self.distform( self.xl2,self.yl2 )
                 udis,ldis   = udis1+udis2,ldis1+ldis2 
             upct   = udis/(udis+ldis)
-            self.ptsu = int(upct*npts)
-            self.ptsl = npts - self.ptsu
+            self.u1pct  = udis1/udis 
+            self.l1pct  = ldis1/ldis
+            self.ptsu   = int(upct*npts)
+            self.ptsl   = npts - self.ptsu
+            
 
             
 # ------------------------------------------------------------------------     
@@ -693,9 +703,9 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------ 
 #   P       -- Array of control points
 #   x,y     -- Arrays of points 
-#   curvnum -- By inserting a number here we know how many degrees of freedom
+#   curvnum -- By inserting a number here we know which points to keep fixed etc.
 #              to allow the end points to have    
-    def gen_bez_sing( self,P,x,y,wt,pts,curvnum ):
+    def gen_bez_sing( self,P,x,y,wt,pts,split,curvnum ):
        self.N = self.order.GetValue() 
        if self.noiter.GetValue() == False and self.redraw == False:
            self.itopt = self.optits.GetValue()
@@ -704,32 +714,37 @@ class MainFrame ( wx.Frame ):
        else:                                   otype = 0 
        self.load_sp()   
        Hk = numpy.identity(self.N*2)
-       Pout,xb,yb = bezier_sing( pts,self.itopt,otype,curvnum,Hk,x,y,wt,self.pdis,P )
+       Pout,xb,yb = bezier_sing( pts,self.itopt,otype,curvnum,split,Hk,x,y,wt,self.pdis,P )
        return Pout,xb,yb 
+
  
  
     def gen_bez_new( self,event ):
         if self.havefile:
             # first check for a restart
-            if (((self.restart.GetValue() or self.noiter.GetValue()) and self.canrs)
-                                          or self.redraw):
-               Pinu1,Pinu2 = self.Poutu1,self.Poutu2 
-               Pinl1,Pinl2 = self.Poutl1,self.Poutl2 
-               self.redraw = False
-            else: # Initialize all
-               Pinu1,Pinu2,Pinl1,Pinl2 = self.init_P()
-             
-                       
-                       
-                       
-               print Pinu1,Pinu2    
-               print Pinl1,Pinl2    
+            #if (((self.restart.GetValue() or self.noiter.GetValue()) and self.canrs)
+            #                              or self.redraw):
+            #   Pinu1,Pinu2 = self.Poutu1,self.Poutu2 
+            #   Pinl1,Pinl2 = self.Poutl1,self.Poutl2 
+            #   self.redraw = False
+            #else: # Initialize all
+            Pinu1,Pinu2,Pinl1,Pinl2 = self.init_P()
+            # Thinking it would be a good idea to feed in the total number of points
+            # on both the upper and lower surface so the fortran code can make adjustments
+            #
+            # Idea!!! Generate a percentage of the total for each the upper and lower, 
+            self.split_pts()              
+            # This is the actual fortran funtion call 
+            # Upper 1
+            self.gen_bez_sing(Pinu1,self.xu1,self.yu1,self.wtu1,self.ptsu,self.u1pct,1)
+            
+
     def init_P( self ):      
        N = self.order.GetValue() 
-       Pinu1 = [[0.0 for i in range(self.order.GetValue() )] for j in range(2)]
-       Pinu2 = [[0.0 for i in range(self.order.GetValue() )] for j in range(2)]
-       Pinl1 = [[0.0 for i in range(self.order.GetValue() )] for j in range(2)]
-       Pinl2 = [[0.0 for i in range(self.order.GetValue() )] for j in range(2)]
+       Pinu1 = [[0.0 for i in range( self.order.GetValue() )] for j in range(2)]
+       Pinu2 = [[0.0 for i in range( self.order.GetValue() )] for j in range(2)]
+       Pinl1 = [[0.0 for i in range( self.order.GetValue() )] for j in range(2)]
+       Pinl2 = [[0.0 for i in range( self.order.GetValue() )] for j in range(2)]
        
        # First "Quandrant" (1st 2 points set to zero) -----------------
        sp = self.xu1[-1]/float(N-2)
@@ -836,7 +851,6 @@ class MainFrame ( wx.Frame ):
                otyp = 1
            else: 
                otyp = 0 
-           self.gen_bez_sing(Pinu,self.xu,self.yu,self.wtu,len(self.xu),1)
            self.Poutu,self.Poutl,self.xbu,self.ybu,self.xbl,self.ybl = bezier_opt_main(self.ptsu,
                                              self.ptsl,self.itopt,otyp,le_scale,Hk,self.xu,self.yu,
                                              self.xl,self.yl,self.wtu,self.wtl,self.pdis,Pinu,Pinl)      

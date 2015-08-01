@@ -1,16 +1,17 @@
-      subroutine bezier_sing( l,N,pts,optit,otype,segnum,Hko,
+      subroutine bezier_sing( l,N,pts,optit,otype,segnum,split,Hko,
      &                         x,y,wt,pdis,Pin,Pout,xb,yb  )
       implicit none
       integer, intent(in) :: l,N,pts,optit,otype,segnum 
+      real(kind=8), intent(in) :: split 
       real(kind=8), dimension(5), intent(in) :: pdis
       real(kind=8), dimension(l),   intent(in)  :: x,y,wt
-      real(kind=8), dimension(2,N),  intent(in)  :: Pin
+      real(kind=8), dimension(2,N),  intent(in) :: Pin
       real(kind=8), dimension(2*N,2*N), intent(in) :: Hko 
       real(kind=8), dimension(pts), intent(out) :: xb,yb
-      real(kind=8), dimension(2,N),  intent(out) :: Pout 
+      real(kind=8), dimension(2,N), intent(out) :: Pout 
 !     local variables      
-      integer :: i,j,mpts
-      real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep
+      integer :: i,j,mpts,lpts,tpts 
+      real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep,scl,shft 
       real(kind=8), dimension(pts,N) :: ttemp,tmat
       real(kind=8), dimension(N,N)    :: a
       real(kind=8), dimension(pts,2) :: mptsu 
@@ -18,22 +19,72 @@
       real(kind=8), dimension(2,N)    :: gradvec,Ptemp,stepd
       real(kind=8), dimension(2*N)    :: stepdir,pveck,fltgrdk
       real(kind=8), dimension(2*N,2*N) :: Hk 
-      real(kind=8), dimension(:), allocatable :: tms,tx,ty
-    
+      real(kind=8), dimension(:), allocatable :: tms,tx,ty,tl,tt
+      real(kind=8), dimension(:,:), allocatable :: mat,mtemp,dpts
       ! Store info about spacing  
       pcle = pdis(2)
       pcte = pdis(3)
       lep  = pdis(4)
       tep  = pdis(5) 
 
-      ! get the polynomial basis in matrix form 
+      ! Get the polynomial basis in matrix form 
       call bernstein_matrix(N,a)
-      ! 
+      ! This will get an array of points that represents the entire
+      ! upper/lower surface as the number of points input is for the
+      ! whole surface as well 
+      ! tv -- entire surface 't' vector
+      ! tl -- leading edge 't' vector
+      ! tt -- trailing edge 't' vector 
+   
       if (pdis(1) > 0.0D0) then
          call gettvec2(pts,pcle,pcte,lep,tep,tv)
       else
          call gettvec(pts,tv) 
       end if 
+ 
+      ! Split the points on the particular surface based on the
+      ! parameter 'split' 
+
+      lpts = int( split*real(pts,kind=8) )
+      tpts = pts - lpts  
+      allocate( tl(lpts), tt(tpts) ) 
+      tl = tv(1:lpts)
+      tt = tv(lpts+1:pts)
+      !
+      ! Now need to rescale things a bit
+      scl = 1.0D0/tl(lpts) 
+      do i = 1,lpts
+         tl(i) = tl(i)*scl
+      end do 
+
+      shft = tt(1)
+      scl  = 1.0D0/(tt(tpts)-tt(1))
+      do i = 1,tpts 
+         tt(i) = (tt(i)-shft)*scl
+      end do 
+
+      ! Need to do different things based on which segment we are
+      ! looking at  
+      
+      ! This should help with spacing
+      ! *************************************************************
+      mpts = 15000
+      allocate( tms(mpts),tx(mpts),ty(mpts) )  
+      allocate( mat(mpts,N), mtemp(mpts,N), dpts(mpts,2) ) 
+      ! Get an initial equi-spaced vector with many points
+      call gettvec(mpts,tms)      
+      call tmatrix(tms,mpts,N,mat)
+      mtemp   = matmul(mat, transpose(a)  )  
+      ! Get dense collection of points from upper surface
+      dpts    = matmul(mtemp,transpose(Pin))
+      tx      = dpts(:,1)
+      ty      = dpts(:,2)
+      ! this is an operation heavy function so only call  
+      if (segnum .eq. 1 .or. segnum .eq. 3) then
+         call evenspace(mpts,lpts,tx,ty,tms,tl)
+      else
+         call evenspace(mpts,lpts,t
+
 
       Pout = Pin
       xb   = tv
