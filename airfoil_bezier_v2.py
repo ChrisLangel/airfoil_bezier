@@ -684,8 +684,8 @@ class MainFrame ( wx.Frame ):
             npts   = self.numpoints.GetValue() 
             if self.canrs and self.noiter.GetValue() == False: #If we have a curve already, use those coordinates
                 udis,ldis = self.distform( self.xbu,self.ybu ),self.distform( self.xbl,self.ybl )       
-                udis1,ldis1 = self.distform( self.xu1,self.yu1 ),self.distform( self.xl1,self.yl1 )
-                udis2,ldis2 = self.distform( self.xu2,self.yu2 ),self.distform( self.xl2,self.yl2 )
+                udis1,ldis1 = self.distform( self.xbu1,self.ybu1 ),self.distform( self.xbl1,self.ybl1 )
+                udis2,ldis2 = self.distform( self.xbu2,self.ybu2 ),self.distform( self.xbl2,self.ybl2 )
             else:
                 udis1,ldis1 = self.distform( self.xu1,self.yu1 ),self.distform( self.xl1,self.yl1 )
                 udis2,ldis2 = self.distform( self.xu2,self.yu2 ),self.distform( self.xl2,self.yl2 )
@@ -705,16 +705,17 @@ class MainFrame ( wx.Frame ):
 #   x,y     -- Arrays of points 
 #   curvnum -- By inserting a number here we know which points to keep fixed etc.
 #              to allow the end points to have    
-    def gen_bez_sing( self,P,x,y,wt,pts,split,curvnum ):
+    def gen_bez_sing( self,P,x,y,wt,pts,spts,split,curvnum ):
        self.N = self.order.GetValue() 
        if self.noiter.GetValue() == False and self.redraw == False:
            self.itopt = self.optits.GetValue()
        # In this version do not cluster according to 2nd der mag
        if self.pointwin.check_grad.GetValue(): otype = 1
        else:                                   otype = 0 
-       self.load_sp()   
+       self.load_sp()     
+       
        Hk = numpy.identity(self.N*2)
-       Pout,xb,yb = bezier_sing( pts,self.itopt,otype,curvnum,split,Hk,x,y,wt,self.pdis,P )
+       Pout,xb,yb = bezier_sing( pts,self.itopt,otype,curvnum,spts,split,Hk,x,y,wt,self.pdis,P )
        return Pout,xb,yb 
 
  
@@ -722,22 +723,34 @@ class MainFrame ( wx.Frame ):
     def gen_bez_new( self,event ):
         if self.havefile:
             # first check for a restart
-            #if (((self.restart.GetValue() or self.noiter.GetValue()) and self.canrs)
-            #                              or self.redraw):
-            #   Pinu1,Pinu2 = self.Poutu1,self.Poutu2 
-            #   Pinl1,Pinl2 = self.Poutl1,self.Poutl2 
-            #   self.redraw = False
-            #else: # Initialize all
-            Pinu1,Pinu2,Pinl1,Pinl2 = self.init_P()
+            if (((self.restart.GetValue() or self.noiter.GetValue()) and self.canrs)
+                                          or self.redraw):
+               Pinu1,Pinu2 = self.Poutu1,self.Poutu2 
+               Pinl1,Pinl2 = self.Poutl1,self.Poutl2 
+               self.redraw = False
+            else: # Initialize all
+                Pinu1,Pinu2,Pinl1,Pinl2 = self.init_P()
             # Thinking it would be a good idea to feed in the total number of points
             # on both the upper and lower surface so the fortran code can make adjustments
             #
             # Idea!!! Generate a percentage of the total for each the upper and lower, 
             self.split_pts()              
-            # This is the actual fortran funtion call 
-            # Upper 1
-            self.gen_bez_sing(Pinu1,self.xu1,self.yu1,self.wtu1,self.ptsu,self.u1pct,1)
+            # Call all the different segments 
+            print Pinu1
+            print "space"
             
+            ulpts = int(self.u1pct*float(self.ptsu))
+            utpts = self.ptsu - ulpts      
+        
+            self.Poutu1,self.xbu1,self.ybu1 = self.gen_bez_sing(Pinu1,self.xu1,self.yu1,self.wtu1,self.ptsu,ulpts,self.u1pct,1)
+            #self.Poutl1,self.xbl1,self.ybl1 = self.gen_bez_sing(Pinl1,self.xl1,self.yl1,self.wtl1,self.ptsl,self.l1pct,2)
+            #self.Poutu2,self.xbu2,self.ybu2 = self.gen_bez_sing(Pinu2,self.xu2,self.yu2,self.wtu2,self.ptsu,self.u1pct,3)
+            #self.Poutl2,self.xbl2,self.ybl2 = self.gen_bez_sing(Pinl2,self.xl2,self.yl2,self.wtl2,self.ptsl,self.l1pct,4)
+    
+            plt.plot(self.xbu1,self.ybu1,'ro')
+            plt.show() 
+            #self.plotwin.axes.plot(self.xbu2,self.ybu2,'r',self.xbl2,self.ybl2,'r')
+
 
     def init_P( self ):      
        N = self.order.GetValue() 

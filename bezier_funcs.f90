@@ -1,4 +1,4 @@
-      subroutine bezier_opt_main( lu,ll,N,ptsu,ptsl,optit,otyp,lesc,Hk,
+      sqbroutine bezier_opt_main( lu,ll,N,ptsu,ptsl,optit,otyp,lesc,Hk,
      &                            xu,yu,xl,yl,wtu,wtl,pdis,Pinu,Pinl,
      &                            Poutu,Poutl,xbu,ybu,xbl,ybl) 
       implicit none

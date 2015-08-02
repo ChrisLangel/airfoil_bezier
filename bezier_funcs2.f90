@@ -1,26 +1,29 @@
-      subroutine bezier_sing( l,N,pts,optit,otype,segnum,split,Hko,
+      subroutine bezier_sing( l,N,pts,optit,otype,segnum,spts,split,Hko,
      &                         x,y,wt,pdis,Pin,Pout,xb,yb  )
       implicit none
-      integer, intent(in) :: l,N,pts,optit,otype,segnum 
+      integer, intent(in) :: l,N,pts,optit,otype,segnum,spts 
       real(kind=8), intent(in) :: split 
-      real(kind=8), dimension(5), intent(in) :: pdis
-      real(kind=8), dimension(l),   intent(in)  :: x,y,wt
+      real(kind=8), dimension(5),    intent(in) :: pdis
+      real(kind=8), dimension(l),    intent(in) :: x,y,wt
       real(kind=8), dimension(2,N),  intent(in) :: Pin
       real(kind=8), dimension(2*N,2*N), intent(in) :: Hko 
-      real(kind=8), dimension(pts), intent(out) :: xb,yb
+      real(kind=8), dimension(spts), intent(out) :: xb,yb
       real(kind=8), dimension(2,N), intent(out) :: Pout 
 !     local variables      
       integer :: i,j,mpts,lpts,tpts 
-      real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep,scl,shft 
-      real(kind=8), dimension(pts,N) :: ttemp,tmat
+      real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep,scl,shft,lesc 
       real(kind=8), dimension(N,N)    :: a
-      real(kind=8), dimension(pts,2) :: mptsu 
-      real(kind=8), dimension(pts)   :: tv
+      real(kind=8), dimension(pts)    :: tv
       real(kind=8), dimension(2,N)    :: gradvec,Ptemp,stepd
       real(kind=8), dimension(2*N)    :: stepdir,pveck,fltgrdk
       real(kind=8), dimension(2*N,2*N) :: Hk 
-      real(kind=8), dimension(:), allocatable :: tms,tx,ty,tl,tt
+      real(kind=8), dimension(:), allocatable :: tms,tx,ty,tl,tt,xbt,ybt
       real(kind=8), dimension(:,:), allocatable :: mat,mtemp,dpts
+      real(kind=8), dimension(:,:), allocatable :: ttemp,tmat,mptsu
+      ! For now in this version do not actually worry about the leading
+      ! edge constraint 
+      lesc = 0.0D0 
+
       ! Store info about spacing  
       pcle = pdis(2)
       pcte = pdis(3)
@@ -44,7 +47,7 @@
  
       ! Split the points on the particular surface based on the
       ! parameter 'split' 
-
+      ! Maybe do this in python 
       lpts = int( split*real(pts,kind=8) )
       tpts = pts - lpts  
       allocate( tl(lpts), tt(tpts) ) 
@@ -63,8 +66,6 @@
          tt(i) = (tt(i)-shft)*scl
       end do 
 
-      ! Need to do different things based on which segment we are
-      ! looking at  
       
       ! This should help with spacing
       ! *************************************************************
@@ -79,16 +80,123 @@
       dpts    = matmul(mtemp,transpose(Pin))
       tx      = dpts(:,1)
       ty      = dpts(:,2)
-      ! this is an operation heavy function so only call  
-      if (segnum .eq. 1 .or. segnum .eq. 3) then
+
+      ! Need to do different things based on which segment we are
+      ! looking at, change up the gradient vector
+!----------------------------------------------------------------
+      ! first "quadrant"  1st,last should be zero 
+      ! the x-coordinate of 2nd point does not move 
+      ! the y-coordinate of the N-1 point does not move
+      if (segnum .eq. 1) then
+         allocate( mptsu(lpts,2),ttemp(lpts,N),tmat(lpts,N) )
+         allocate( xbt(lpts), ybt(lpts) )         
          call evenspace(mpts,lpts,tx,ty,tms,tl)
-      else
-         call evenspace(mpts,lpts,t
-
-
-      Pout = Pin
-      xb   = tv
-      yb   = tv
+         call tmatrix(tl,lpts,N,tmat)
+         
+         ttemp   = matmul(tmat, transpose(a)  )  
+         mptsu   = matmul(ttemp,transpose(Pin))    
+         xb      = mptsu(:,1)
+         yb      = mptsu(:,2)
+         ! Run the optimization loop
+         ! Figured it out!!! We can not feed the entire array of orinal
+         ! points!
+         Ptemp = Pin 
+         do i = 1,optit
+           call compgrad(l,N,lpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
+           ! Now tweak based on which segment we are looking at
+           gradvec(1,2  ) = 0.0D0
+           gradvec(2,N-1) = 0.0D0
+           ! renormalize
+           call normgrad(N,gradvec)
+           call linesearch(l,N,lpts,lesc,
+     &                  x,y,wt,ttemp,Ptemp,gradvec,Pout)
+           Ptemp = Pout
+         end do
+         mptsu   = matmul(ttemp,transpose(Ptemp))            
+         xb      = mptsu(:,1)
+         yb      = mptsu(:,2)
+!----------------------------------------------------------------
+      ! second  "quadrant"  1st,last should be zero 
+      ! the y-coordinate of 2nd point does not move 
+      else if (segnum .eq. 2) then
+         allocate( mptsu(tpts,2),ttemp(tpts,N),tmat(tpts,N) )          
+         call evenspace(mpts,tpts,tx,ty,tms,tt) 
+         call tmatrix(tt,tpts,N,tmat)
+         ttemp   = matmul(tmat, transpose(a)  )  
+         mptsu   = matmul(ttemp,transpose(Pin))            
+         xb      = mptsu(:,1)
+         yb      = mptsu(:,2)
+         ! Run the optimization loop
+         do i = 1,optit
+           call compgrad(l,N,tpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
+           ! Now tweak based on which segment we are looking at
+           gradvec(2,2) = 0.0D0
+           ! renormalize
+           call normgrad(N,gradvec)
+           call linesearch(l,N,tpts,lesc,
+     &                  x,y,wt,ttemp,Ptemp,gradvec,Pout)
+           Ptemp = Pout
+         end do
+         mptsu   = matmul(ttemp,transpose(Ptemp))            
+         xb      = mptsu(:,1)
+         yb      = mptsu(:,2)
+!----------------------------------------------------------------
+      ! third "quadrant"  1st,last should be zero 
+      ! the x-coordinate of 2nd point does not move 
+      ! the y-coordinate of the N-1 point does not move
+      else if (segnum .eq. 3) then
+         allocate( mptsu(lpts,2),ttemp(lpts,N),tmat(lpts,N) )          
+         call evenspace(mpts,lpts,tx,ty,tms,tl) 
+         call tmatrix(tl,lpts,N,tmat)
+         ttemp   = matmul(tmat, transpose(a)  )  
+         mptsu   = matmul(ttemp,transpose(Pin))            
+         xb      = mptsu(:,1)
+         yb      = mptsu(:,2)
+         ! Run the optimization loop
+         do i = 1,optit
+           call compgrad(l,N,lpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
+           ! Now tweak based on which segment we are looking at
+           gradvec(1,2  ) = 0.0D0
+           gradvec(2,N-1) = 0.0D0
+           ! renormalize
+           call normgrad(N,gradvec)
+           call linesearch(l,N,lpts,lesc,
+     &                  x,y,wt,ttemp,Ptemp,gradvec,Pout)
+           Ptemp = Pout
+         end do
+         mptsu   = matmul(ttemp,transpose(Ptemp))            
+         xb      = mptsu(:,1)
+         yb      = mptsu(:,2)
+!----------------------------------------------------------------
+      ! fourth "quadrant"  1st,last should be zero 
+      ! the y-coordinate of 2nd point does not move 
+      else if (segnum .eq. 4) then
+         allocate( mptsu(tpts,2),ttemp(tpts,N),tmat(tpts,N) )          
+         call evenspace(mpts,tpts,tx,ty,tms,tt) 
+         call tmatrix(tt,tpts,N,tmat)
+         ttemp   = matmul(tmat, transpose(a)  )  
+         mptsu   = matmul(ttemp,transpose(Pin))            
+         xb      = mptsu(:,1)
+         yb      = mptsu(:,2)
+         ! Run the optimization loop
+         do i = 1,optit
+           call compgrad(l,N,tpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
+           ! Now tweak based on which segment we are looking at
+           gradvec(2,2) = 0.0D0
+           ! renormalize
+           call normgrad(N,gradvec)
+           call linesearch(l,N,tpts,lesc,
+     &                  x,y,wt,ttemp,Ptemp,gradvec,Pout)
+           Ptemp = Pout
+         end do
+         mptsu   = matmul(ttemp,transpose(Ptemp))            
+         xb      = mptsu(:,1)
+         yb      = mptsu(:,2)
+      end if 
+       
+      if (optit == 0) then
+         Pout = Pin
+      end if
       end subroutine
 
 
@@ -448,14 +556,13 @@
          end do
          norm = norm + minv*wtv(i) 
       end do
-
       ! Include a component that puts a constraint on the slope at the
       ! leading edge  
       dy = pts(2,2) - pts(1,2)
       dx = pts(2,1) - pts(1,1)
-      dydx = dy/dx
+      dx = max(dx,0.0000001) 
+      dydx = dy/dx      
       norm = norm + lesc*(1/abs(dydx))      
-      
       end subroutine
 
 !********************************************************************
@@ -488,14 +595,33 @@
             Ptemp      = Pin
             Ptemp(i,j) = Pin(i,j) + Pin(i,j)*stepsize 
             pts        = matmul(ttemp,transpose(Ptemp))
-            call compnorm(l,npts,lesc,x,y,wtv,pts,norm) 
+            call compnorm(l,npts,lesc,x,y,wtv,pts,norm)
+            ! write(*,*) norm,i,j
             dy = norm - orignorm
             dx = Pin(i,j)*stepsize
-            gradvec(i,j) = dy/dx 
+            if (Pin(i,j) .eq. 0.0) then
+               gradvec(i,j) = 0.0D0
+            else
+               gradvec(i,j) = dy/dx 
+            end if
          end do 
       end do
-
+      ! write(*,*) gradvec 
       ! normalize gradient vector 
+      call normgrad(N,gradvec) 
+
+      end subroutine 
+
+!********************************************************************
+!     Subroutine that normalizes the  
+!********************************************************************
+      subroutine normgrad(N,gradvec)
+      implicit none 
+      integer,intent(in) :: N
+      real(kind=8), dimension(2,N), intent(inout) :: gradvec
+      integer :: i,j
+      real(kind=8) :: gradmag 
+
       gradmag = 0.0 
       do j = 1,N
          do i = 1,2
@@ -508,7 +634,7 @@
          end do
       end do 
 
-      end subroutine 
+      end subroutine
 
 !********************************************************************
 !     Subroutine that returns quasi-newton step direction 
