@@ -118,10 +118,6 @@
       ! second  "quadrant"  1st,last should be zero 
       ! the y-coordinate of 2nd point does not move 
       else if (segnum .eq. 2) then
-         write(*,*) tpts,spts
-         !do i = 1,tpts
-         !   write(*,*) tt(i)
-         !end do 
          allocate( mptsu(tpts,2),ttemp(tpts,N),tmat(tpts,N) )          
          call evenspace(mpts,tpts,tx,ty,tms,tt) 
          call tmatrix(tt,tpts,N,tmat)
@@ -131,7 +127,6 @@
          yb      = mptsu(:,2)
          ! Run the optimization loop
          Ptemp = Pin
-         write(*,*) Pin
          do i = 1,optit
            call compgrad(l,N,tpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
            ! Now tweak based on which segment we are looking at

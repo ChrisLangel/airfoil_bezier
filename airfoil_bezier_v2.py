@@ -124,22 +124,35 @@ class plotwindow( wx.Frame ):
     def on_rightclick( self, event ):
         x,y = event.xdata, event.ydata
         if self.parent.havefile:
-            xus,yus = self.parent.xu, self.parent.yu  
-            xls,yls = self.parent.xl, self.parent.yl  
-            minup,inup = self.findmin( xus,yus,x,y )
-            minl,inl   = self.findmin( xls,yls,x,y )
+            xus1,yus1 = self.parent.xu1, self.parent.yu1  
+            xls1,yls1 = self.parent.xl1, self.parent.yl1  
+            xus2,yus2 = self.parent.xu2, self.parent.yu2  
+            xls2,yls2 = self.parent.xl2, self.parent.yl2  
+            minup1,inup1 = self.findmin( xus1,yus1,x,y )
+            minl1, inl1  = self.findmin( xls1,yls1,x,y )
+            minup2,inup2 = self.findmin( xus2,yus2,x,y )
+            minl2, inl2  = self.findmin( xls2,yls2,x,y )
+            mins = [minup1, minl1, minup2, minl2]
+            ins  = [ inup1,  inl1,  inup2,  inl2]
+                 
+            self.pseg = self.index_min(mins)
+            self.pind = ins[self.pseg]                 
+            
             if self.pointsel:
                 del self.axes.lines[self.ponind]
-            if minup < minl: # we are on upper surface
-                self.axes.plot(xus[inup],yus[inup],'r*',ms=10)
-                self.parent.weight.SetValue( self.parent.wtu[inup])
-                self.pind   = inup 
-                self.u_or_l = 'u'                      
+                
+            if self.pseg == 0:
+                self.axes.plot(xus1[self.pind],yus1[self.pind],'r*',ms=10)
+                self.parent.weight.SetValue( self.parent.wtu1[self.pind])
+            elif self.pseg == 1:
+                self.axes.plot(xls1[self.pind],yls1[self.pind],'r*',ms=10)
+                self.parent.weight.SetValue( self.parent.wtl1[self.pind])
+            elif self.pseg == 2:
+                self.axes.plot(xus2[self.pind],yus2[self.pind],'r*',ms=10)
+                self.parent.weight.SetValue( self.parent.wtu2[self.pind])
             else:
-                self.axes.plot(xls[inl], yls[inl] ,'r*', ms=10)
-                self.parent.weight.SetValue( self.parent.wtl[inl])  
-                self.pind   = inl
-                self.u_or_l = 'l'     
+                self.axes.plot(xls2[self.pind],yls2[self.pind],'r*',ms=10)
+                self.parent.weight.SetValue( self.parent.wtl2[self.pind])                   
             self.pointsel = True  
             self.canvas.draw()           
             self.ponind   = len( self.axes.lines ) - 1
@@ -151,19 +164,25 @@ class plotwindow( wx.Frame ):
     def on_leftclick( self, event ):
         x,y = event.xdata, event.ydata
         if (self.parent.canrs and self.parent.cpshown):
-            xus,yus = self.parent.xcu, self.parent.ycu  
-            xls,yls = self.parent.xcl, self.parent.ycl  
-            minup,inup = self.findmin( xus,yus,x,y )
-            minl,inl   = self.findmin( xls,yls,x,y )
-            if minup < minl: # we are on upper surface
-                self.cpind   = inup 
-                self.u_or_l = 'u'                      
-            else:
-                self.cpind   = inl
-                self.u_or_l = 'l'     
-            if (minup < 0.03 or minl < 0.03 ):
+            xus1,yus1 = self.parent.xcu1, self.parent.ycu1  
+            xls1,yls1 = self.parent.xcl1, self.parent.ycl1  
+            xus2,yus2 = self.parent.xcu2, self.parent.ycu2  
+            xls2,yls2 = self.parent.xcl2, self.parent.ycl2  
+            minup1,inup1 = self.findmin( xus1,yus1,x,y )
+            minl1, inl1  = self.findmin( xls1,yls1,x,y )
+            minup2,inup2 = self.findmin( xus2,yus2,x,y )
+            minl2, inl2  = self.findmin( xls2,yls2,x,y )
+            mins = [minup1, minl1, minup2, minl2]
+            ins  = [inup1, inl1, inup2, inl2]
+                 
+            self.cpseg = self.index_min(mins)
+            self.cpind = ins[self.cpseg]    
+            
+            if (mins[self.cpseg] < 0.03 ):
                 self.movecp   = True
                 
+    def index_min(self,values):
+        return min(xrange(len(values)),key=values.__getitem__)            
 
     def findmin( self,xa,ya,x,y ):
         # xa,ya -- arrays of points
@@ -182,20 +201,52 @@ class plotwindow( wx.Frame ):
 # ------------------------------------------------------------------------
     def on_motion( self,event ):
         if self.movecp:            
-	    if self.pointsel:
-	        # Wipe out the point selected 
-	        self.parent.cpcurves.append( self.ponind ) 
+            N = self.parent.order.GetValue() 
+            if self.pointsel:
+                self.parent.cpcurves.append( self.ponind ) 
                 self.parent.cpcurves.sort() 
                 self.parent.cpcurves.reverse()
-	        self.pointsel = False
+                self.pointsel = False
             self.parent.del_cpts()
             self.parent.cpshown = False
-            if self.u_or_l == 'u':
-                self.parent.Poutu[0][self.cpind] = event.xdata 
-                self.parent.Poutu[1][self.cpind] = event.ydata 
-            else:
-                self.parent.Poutl[0][self.cpind] = event.xdata 
-                self.parent.Poutl[1][self.cpind] = event.ydata 
+            # Do not allow selection of end points, constrain movement accordingly
+            if self.cpseg == 0:
+               if (self.cpind == 0 or self.cpind == (N-1)):
+                   self.movecp = False
+               elif (self.cpind == 1):
+                   self.parent.Poutu1[1][self.cpind] = event.ydata
+               elif (self.cpind == (N-2)):
+                   self.parent.Poutu1[0][self.cpind] = event.xdata 
+               else:
+                   self.parent.Poutu1[0][self.cpind] = event.xdata 
+                   self.parent.Poutu1[1][self.cpind] = event.ydata 
+            elif self.cpseg == 1:
+               if (self.cpind == 0 or self.cpind == (N-1)):
+                  self.movecp = False
+               elif (self.cpind == 1):
+                  self.parent.Poutl1[1][self.cpind] = event.ydata
+               elif (self.cpind == (N-2)):
+                  self.parent.Poutl1[0][self.cpind] = event.xdata 
+               else:
+                  self.parent.Poutl1[0][self.cpind] = event.xdata 
+                  self.parent.Poutl1[1][self.cpind] = event.ydata 
+            elif self.cpseg == 2:
+               if (self.cpind == 0 or self.cpind == (N-1)):
+                  self.movecp = False
+               elif(self.cpind ==1):
+                  self.parent.Poutu2[0][self.cpind] = event.xdata  
+               else:
+                  self.parent.Poutu2[0][self.cpind] = event.xdata 
+                  self.parent.Poutu2[1][self.cpind] = event.ydata 
+            elif self.cpseg ==3:
+               if (self.cpind == 0 or self.cpind == (N-1)):
+                  self.movecp = False
+               elif(self.cpind ==1):
+                  self.parent.Poutl2[0][self.cpind] = event.xdata  
+               else:
+                  self.parent.Poutl2[0][self.cpind] = event.xdata 
+                  self.parent.Poutl2[1][self.cpind] = event.ydata 
+                
             self.parent.show_cpts( event )                
 
     def on_release( self,event ):    
@@ -203,6 +254,7 @@ class plotwindow( wx.Frame ):
         # this bit of code redraws the bezier curve after moving a control point 
             self.parent.itopt = 0
             self.parent.redraw = True
+            print "turning redraw on"
             self.parent.gen_bez( event )
         self.movecp = False               
 
@@ -656,11 +708,15 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------
     def chgwt( self,event ):
         if (self.plotwin.pointsel and self.havefile):
-            if self.plotwin.u_or_l == 'u':
-                self.wtu[self.plotwin.pind] = self.weight.GetValue()
+            if self.plotwin.pseg == 0:
+                self.wtu1[self.plotwin.pind] = self.weight.GetValue()
+            elif self.plotwin.pseg == 1:
+                self.wtl1[self.plotwin.pind] = self.weight.GetValue()
+            elif self.plotwin.pseg == 2:
+                self.wtu2[self.plotwin.pind] = self.weight.GetValue()
             else:
-                self.wtl[self.plotwin.pind] = self.weight.GetValue()
-
+                self.wtl2[self.plotwin.pind] = self.weight.GetValue()
+            
 
 # ------------------------------------------------------------------------
 # Function that sets weight of all points to 1.0
@@ -708,13 +764,12 @@ class MainFrame ( wx.Frame ):
 #              to allow the end points to have    
     def gen_bez_sing( self,P,x,y,wt,pts,spts,split,curvnum ):
        self.N = self.order.GetValue() 
-       if self.noiter.GetValue() == False and self.redraw == False:
-           self.itopt = self.optits.GetValue()
+
        # In this version do not cluster according to 2nd der mag
        if self.pointwin.check_grad.GetValue(): otype = 1
        else:                                   otype = 0 
        self.load_sp()     
-       
+      # print self.itopt 
        Hk = numpy.identity(self.N*2)
        Pout,xb,yb = bezier_sing( pts,self.itopt,otype,curvnum,spts,split,Hk,x,y,wt,self.pdis,P )
        return Pout,xb,yb 
@@ -728,19 +783,16 @@ class MainFrame ( wx.Frame ):
                                           or self.redraw):
                Pinu1,Pinu2 = self.Poutu1,self.Poutu2 
                Pinl1,Pinl2 = self.Poutl1,self.Poutl2 
-               self.redraw = False
             else: # Initialize all
                 Pinu1,Pinu2,Pinl1,Pinl2 = self.init_P()
             # Thinking it would be a good idea to feed in the total number of points
             # on both the upper and lower surface so the fortran code can make adjustments
             self.split_pts()              
-            # Call all the different segments 
-            print Pinl1
-            print "space"
-            
+            if self.noiter.GetValue() == False and self.redraw == False:
+               self.itopt = self.optits.GetValue()
+               
             ulpts = int(self.u1pct*float(self.ptsu))
             utpts = self.ptsu - ulpts      
-
             llpts = int(self.l1pct*float(self.ptsl))
             ltpts = self.ptsl - llpts      
         
@@ -754,13 +806,10 @@ class MainFrame ( wx.Frame ):
             self.plotwin.canvas.draw() 
            # save the index of the curves 
             temp = len(self.plotwin.axes.lines) - 1
-            self.bcurves.extend([temp-3,temp-2,temp-1,temp])
+            self.bcurves.extend([temp,temp-1,temp-2,temp-3])
             self.canrs = True
-            #print self.xbu2
-            #print self.ybu2
-            #plt.plot(self.xbu1,self.ybu1,'ro',self.xbu2,self.ybu2,'ro',self.xbl1,self.ybl1,'ro',self.xbl2,self.ybl2,'ro')
-            #plt.show() 
-            #self.plotwin.axes.plot(self.xbu2,self.ybu2,'r',self.xbl2,self.ybl2,'r')
+            self.redraw = False
+            
             if self.cpshown:
                 self.show_cpts( event )
                 self.show_cpts( event )
@@ -774,7 +823,8 @@ class MainFrame ( wx.Frame ):
        
        # First "Quandrant" (1st 2 points set to zero) -----------------
        sp = self.xu1[-1]/float(N-2)
-       Pinu1[0][N-1] = self.xu1[-1]
+       Pinu1[0][0],Pinu1[0][N-1] = self.xu1[0], self.xu1[-1]
+       Pinu1[1][0] = self.yu1[0]
        Pinu1[1][1],Pinu1[1][N-1],Pinu1[1][N-2] = 1.2*self.yu1[-1],self.yu1[-1],self.yu1[-1] # end points  
        for i in range(N-3):
            Pinu1[0][i+2] = sp*float(i+1)
@@ -792,7 +842,8 @@ class MainFrame ( wx.Frame ):
            
        # Third "Quandrant" (1st 2 points set to zero) -----------------
        sp = self.xl1[-1]/float(N-2)
-       Pinl1[0][N-1] = self.xu1[-1]
+       Pinl1[0][0],Pinl1[0][N-1] = self.xl1[0], self.xl1[-1]
+       Pinl1[1][0] = self.yl1[0]
        Pinl1[1][1],Pinl1[1][N-1],Pinl1[1][N-2] = 1.2*self.yl1[-1],self.yl1[-1],self.yl1[-1] # end points  
        for i in range(N-3):
            Pinl1[0][i+2] = sp*float(i+1)
@@ -814,85 +865,7 @@ class MainFrame ( wx.Frame ):
         self.plotwin.Show()
         self.split_pts()
         self.gen_bez_new(event)
-#        if self.havefile:
-#           self.bezcurve = True
-#           self.N = self.order.GetValue() 
-#           if self.noiter.GetValue() == False and self.redraw == False:
-#               self.itopt = self.optits.GetValue()
-#           # Look for initial estimate for control points, upper surface first 
-#           Pinu    = [[0.0 for i in range(self.N)] for j in range(2)]
-#           Pinl    = [[0.0 for i in range(self.N)] for j in range(2)]
-##           # End Coordinates
-#           Pinu[0][self.N-1] = self.xu[-1]
-#           Pinu[1][self.N-1] = self.yu[-1]
-#           Pinl[0][self.N-1] = self.xl[-1]
-#           Pinl[1][self.N-1] = self.yl[-1]
-#           # if we are using the second derivative to space CPs         
-#           if self.pointwin.check_sder.GetValue():
-#               self.get_p0()
-#               for i in range(len(self.Pinux)-2):
-#                   Pinu[0][i+1] = self.Pinux[i+1]
-#                   Pinu[1][i+1] = 1.2*numpy.interp(self.Pinux[i+1],self.xu,self.yu )
-#               for i in range(len(self.Pinlx)-2):
-#                   Pinl[0][i+1] = self.Pinlx[i+1]
-#                   Pinl[1][i+1] = 1.2*numpy.interp(self.Pinlx[i+1],self.xl,self.yl )
-#           else:  #even spacing                   
-#               xmin,xmax = numpy.amin( self.xu ), numpy.amax( self.xu )
-#               # The first spacing will be the smallest 
-#               firstsp = ((xmax-xmin)/float(self.N-1))/2
-#               Pinu[0][1]  = xmin + firstsp
-#               Pinu[1][1]  = 1.1*numpy.interp((xmin + firstsp),self.xu,self.yu )
-#               initsp  =  (xmax-xmin-firstsp)/(self.N-2)
-#               for i in range(self.N-3):
-#                   Pinu[0][i+2] = xmin+firstsp + initsp*(i+1)    
-#                   Pinu[1][i+2] = 1.1*numpy.interp((xmin+firstsp+ initsp*(i+1)),self.xu,self.yu )
-#               #---------------- ----------------------------------------------------------
-#               xmin,xmax = numpy.amin( self.xl ), numpy.amax( self.xl )
-#               # The first spacing will be the smallest 
-#               firstsp = ((xmax-xmin)/float(self.N-1))/2
-#               Pinl[0][1]  = xmin + firstsp
-#               Pinl[1][1]  = 1.1*numpy.interp((xmin + firstsp),self.xl,self.yl )
-#               initsp  =  (xmax-xmin-firstsp)/(self.N-2)
-#               for i in range(self.N-3):
-#                   Pinl[0][i+2] = xmin+firstsp + initsp*(i+1)    
-#                   Pinl[1][i+2] = 1.1*numpy.interp((xmin+firstsp + initsp*(i+1)),self.xl,self.yl )           
-#           
-#
-#           # see if we are using existing control points
-#           if (((self.restart.GetValue() or self.noiter.GetValue()) and self.canrs)
-#               or self.redraw):
-#               Pinl = self.Poutl
-#               Pinu = self.Poutu
-#               self.redraw = False
-#
-#           # get weighting factor forconstraining the slope of the leading edge            
-#           mod20     = int(self.flatnose.GetValue())/20
-#           real20    = float(self.flatnose.GetValue())/20.0
-#           le_scale  = real20*10.0**( -( 5 - mod20 ) ) 
-#           
-#           self.load_sp()   
-#           Hk = numpy.identity(self.N*2)
-#           
-#           if self.pointwin.check_grad.GetValue():
-#               otyp = 1
-#           else: 
-#               otyp = 0 
-#           self.Poutu,self.Poutl,self.xbu,self.ybu,self.xbl,self.ybl = bezier_opt_main(self.ptsu,
-#                                             self.ptsl,self.itopt,otyp,le_scale,Hk,self.xu,self.yu,
-#                                             self.xl,self.yl,self.wtu,self.wtl,self.pdis,Pinu,Pinl)      
-#                                            
-#           self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')
-#	   self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
-#           self.plotwin.canvas.draw() 
-#           # save the index of the curves 
-#           temp = len(self.plotwin.axes.lines) - 1
-#           self.bcurves.extend([temp-3,temp-2,temp-1,temp])
-#           self.canrs = True
-#           # redraw the control points if they are shown
-#           if self.cpshown:
-#                self.show_cpts( event )
-#                self.show_cpts( event )
-                
+
 
     def distform( self,x,y ):
         temp = 0.0
@@ -900,6 +873,7 @@ class MainFrame ( wx.Frame ):
             ds = ( (x[i+1] - x[i])**2 + (y[i+1] - y[i])**2 )**0.5
             temp = temp + ds
         return temp
+
     
     def compders( self,x,y ):
         dy,dx   = numpy.diff( y ), numpy.diff( x )
@@ -908,6 +882,7 @@ class MainFrame ( wx.Frame ):
         dydx2   = numpy.divide(ddy,ddx)
         return dydx,dydx2 
 
+
     def compmag( self,x,y,dydx2,max2d):
         tot = 0.0
         for i in range(len(dydx2)):
@@ -915,8 +890,7 @@ class MainFrame ( wx.Frame ):
             if dydx2[i] > max2d: dydx2[i] = max2d
             ds = ((x[i+1]-x[i])**2 + ( y[i+1]-y[i])**2 )**0.5
             tot += dydx2[i]*ds 
-        return tot
-        
+        return tot        
         
     def setpts( self,x,y,dydx2,tot,N ):
         P0     = [0.0]     
@@ -1031,12 +1005,12 @@ class MainFrame ( wx.Frame ):
         self.plotwin.Show()
         if self.dershown:
             self.plotwin.axes.cla()
-            self.plotwin.axes.plot(self.xu1, self.yu1, 'ko',self.xu2, self.yu2, 'ko') 
-            self.plotwin.axes.plot(self.xl1, self.yl1, 'ko',self.xl2, self.yl2, 'ko') 
-            self.plotwin.axes.plot(self.xu1, self.yu1,'g--',self.xl1,self.yl1,'g--')  
-            self.plotwin.axes.plot(self.xu2, self.yu2,'g--',self.xl2,self.yl2,'g--') 
-            self.plotwin.axes.plot(self.xbu1,self.ybu1,'b',self.xbl1,self.ybl1,'b')
-            self.plotwin.axes.plot(self.xbu2,self.ybu2,'b',self.xbl2,self.ybl2,'b')
+            self.plotwin.axes.plot(self.xu1, self.yu1, 'ko', self.xu2, self.yu2, 'ko') 
+            self.plotwin.axes.plot(self.xl1, self.yl1, 'ko', self.xl2, self.yl2, 'ko') 
+            self.plotwin.axes.plot(self.xu1, self.yu1, 'g--',self.xl1, self.yl1, 'g--')  
+            self.plotwin.axes.plot(self.xu2, self.yu2, 'g--',self.xl2, self.yl2, 'g--') 
+            self.plotwin.axes.plot(self.xbu1,self.ybu1,'b',  self.xbl1,self.ybl1,'b')
+            self.plotwin.axes.plot(self.xbu2,self.ybu2,'b',  self.xbl2,self.ybl2,'b')
             if self.cpshown:
                 self.cpshown = False
                 self.show_cpts( event )
@@ -1045,20 +1019,37 @@ class MainFrame ( wx.Frame ):
             self.pointsel = False
         else:
             if self.havefile:
-                dydxu,dydx2u = self.compders( self.xbu1, self.ybu1 )
-                dydxl,dydx2l = self.compders( self.xbl1, self.ybl1 )                
+                xbtu,ybtu,xbtl,ybtl = [],[],[],[]
+                for i in range(len(self.xbu1)):
+                    xbtu.append( self.xbu1[i] )
+                    ybtu.append( self.ybu1[i] )
+                    if i > 0:
+                        print self.xbu1[i], self.xbu1[i]-self.xbu1[i-1]
+                for i in range(len(self.xbu2)-1):
+                    xbtu.append( self.xbu2[i+1] )
+                    ybtu.append( self.ybu2[i+1] )
+                    print self.xbu2[i+1], self.xbu2[i+1]-self.xbu2[i]
+                for i in range(len(self.xbl1)):
+                    xbtl.append( self.xbl1[i] )
+                    ybtl.append( self.ybl1[i] )
+                for i in range(len(self.xbl2)-1):
+                    xbtl.append( self.xbl2[i+1] )
+                    ybtl.append( self.ybl2[i+1] )
+                
+                #self.plotwin.axes.cla()    
+                #self.plotwin.axes.plot( xbtu,ybtu )
+                #self.plotwin.axes.plot( xbtl,ybtl )
+                self.plotwin.canvas.draw() 
+                dydxu,dydx2u = self.compders( xbtu,ybtu )
+                dydxl,dydx2l = self.compders( xbtl,ybtl )                
                 self.plotwin.axes.cla()
-                self.plotwin.axes.plot(self.xbu1[:-1],dydxu,'g',  self.xbl1[:-1],dydxl,'g--')
-                self.plotwin.axes.plot(self.xbu1[:-2],dydx2u,'b', self.xbl1[:-2],dydx2l, 'b--')
-                dydxu,dydx2u = self.compders( self.xbu2[1:], self.ybu2[1:] )
-                dydxl,dydx2l = self.compders( self.xbl2[1:], self.ybl2[1:] )                
-                self.plotwin.axes.plot(self.xbu2[1:-1],dydxu,'g',  self.xbl2[1:-1],dydxl,'g--')
-                self.plotwin.axes.plot(self.xbu2[1:-2],dydx2u,'b', self.xbl2[1:-2],dydx2l, 'b--')
+                self.plotwin.axes.plot(xbtu[:-1],dydxu,'g',  xbtu[:-1],dydxl,  'g--')
+                self.plotwin.axes.plot(xbtl[:-2],dydx2u,'b', xbtl[:-2],dydx2l, 'b--')
                 labels = ['$dy/dx$ (upper)', '$dy/dx$ (lower)','$d^2 y/dx^2$ (upper)', '$d^2y/dx^2$ (lower)']
                 self.plotwin.axes.legend( labels )
                 self.plotwin.axes.set_ylim( [-4,4] )
-		self.plotwin.axes.set_xlim( [0,1] )
-		self.plotwin.axes.set_aspect( 'auto', 'datalim')
+                self.plotwin.axes.set_xlim( [0,1] )
+                self.plotwin.axes.set_aspect( 'auto', 'datalim')
                 self.plotwin.canvas.draw()
                 self.dershown = True
 
@@ -1195,16 +1186,22 @@ class MainFrame ( wx.Frame ):
                   
            # split into two parts
            maxu,minl = numpy.amax(self.yu), numpy.amin(self.yl)
-           for i in range(len(self.yu)):
-               if self.yu[i] == maxu: ind = i
+           
+           minind = self.index_min(self.yl)
+           maxind = self.index_max(self.yu)
+           ind = maxind
            self.xu1,self.xu2 = self.xu[:ind+1],self.xu[ind:]
            self.yu1,self.yu2 = self.yu[:ind+1],self.yu[ind:]
-           for i in range(len(self.yl)):
-               if self.yl[i] == minl: ind = i
+           ind = minind
            self.xl1,self.xl2 = self.xl[:ind+1],self.xl[ind:]
            self.yl1,self.yl2 = self.yl[:ind+1],self.yl[ind:]
 
-
+    def index_min(self,values):
+        return min(xrange(len(values)),key=values.__getitem__)    
+        
+    def index_max(self,values):
+        return max(xrange(len(values)),key=values.__getitem__)         
+        
     def is_number(self,s):
         try:
         	float(s)
