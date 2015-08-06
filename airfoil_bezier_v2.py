@@ -656,8 +656,6 @@ class MainFrame ( wx.Frame ):
            self.plotwin.axes.plot(self.xu,  self.yu, 'g--', self.xl,  self.yl,'g--')      
            self.plotwin.canvas.draw() 
            # Set the default weight to 1.0 
-           self.wtu  = [1.0 for i in range(len(self.xu))]
-           self.wtl  = [1.0 for i in range(len(self.xl))]
            self.wtu1 = [1.0 for i in range(len(self.xu1))]
            self.wtl1 = [1.0 for i in range(len(self.xl1))]
            self.wtu2 = [1.0 for i in range(len(self.xu2))]
@@ -723,8 +721,6 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------
     def reset_wt( self,event ):
         if self.havefile:
-           self.wtu = [1.0 for i in range(len(self.xu))]
-           self.wtl = [1.0 for i in range(len(self.xl))]
            self.wtu1 = [1.0 for i in range(len(self.xu1))]
            self.wtl1 = [1.0 for i in range(len(self.xl1))]
            self.wtu2 = [1.0 for i in range(len(self.xu2))]
@@ -1104,10 +1100,15 @@ class MainFrame ( wx.Frame ):
             if savef == True:            
                 fd        = os.open(filetitle, os.O_RDWR|os.O_CREAT )
                 xout,yout = [],[]
-                xout.extend( self.Poutu[0] )
-                yout.extend( self.Poutu[1] )
-                xout.extend( self.Poutl[0] )
-                yout.extend( self.Poutl[1] )
+                xout.extend( self.Poutu1[0] )
+                yout.extend( self.Poutu1[1] )
+                xout.extend( self.Poutu2[0] )
+                yout.extend( self.Poutu2[1] )                
+                # Now lower 
+                xout.extend( self.Poutl1[0] )
+                yout.extend( self.Poutl1[1] )
+                xout.extend( self.Poutl2[0] )
+                yout.extend( self.Poutl2[1] )
                 for i in range(len(xout)):
                     writestr = ''.join([str(xout[i]),'      ', str(yout[i]),'\n'])   
                     os.write(fd,writestr)
