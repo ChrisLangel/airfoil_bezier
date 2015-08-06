@@ -1,19 +1,12 @@
 #!/usr/bin/python
 import wx
-import matplotlib
-import subprocess
+import matplotlib,numpy,os
 matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-
-from matplotlib.backends.backend_wx import NavigationToolbar2Wx
-
-from subprocess import Popen
-from pylab import figure, legend 
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.widgets import Cursor
-import numpy,os
-from bezier_funcs2 import *
+from matplotlib.backends.backend_wx    import NavigationToolbar2Wx
+from subprocess                        import Popen
+from matplotlib.figure                 import Figure
+from bezier_funcs2                     import *
 
 
 # ------------------------------------------------------------------------
@@ -316,31 +309,31 @@ class PointDistribution( wx.Frame ):
         hbox2.Add(self.text4,  0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         
         BoxSizer01.AddSpacer(20)       
-        BoxSizer01.Add( self.text0, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
-        BoxSizer01.Add( self.check_auto, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.text0,       0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.check_auto,  0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.Add( self.check_clust, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.AddSpacer(10)             
-        BoxSizer01.Add(hbox1, 0, wx.ALIGN_CENTER | wx.ALL, 5  )
+        BoxSizer01.Add(hbox1,             0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.AddSpacer(5)             
-        BoxSizer01.Add(hbox2, 0, wx.ALIGN_CENTER | wx.ALL, 5  )
+        BoxSizer01.Add(hbox2,             0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.AddSpacer(10)             
-        BoxSizer01.Add( self.text5, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
-        BoxSizer01.Add( self.check_equi, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
-        BoxSizer01.Add( self.check_sder, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.text5,       0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.check_equi,  0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.check_sder,  0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.AddSpacer(20)     
-        BoxSizer01.Add( self.text6, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
-        BoxSizer01.Add( self.check_grad, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
-        BoxSizer01.Add( self.check_qn, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
+        BoxSizer01.Add( self.text6,       0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.check_grad,  0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.check_qn,    0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         BoxSizer01.AddSpacer(10)    
-        BoxSizer01.Add(self.ok_button, 0, wx.ALIGN_CENTER | wx.ALL, 5  )
+        BoxSizer01.Add(self.ok_button,    0, wx.ALIGN_CENTER | wx.ALL, 5 )
         
-        self.check_auto.Bind(  wx.EVT_CHECKBOX, self.on_auto)
+        self.check_auto.Bind(  wx.EVT_CHECKBOX, self.on_auto )
         self.check_clust.Bind( wx.EVT_CHECKBOX, self.on_clust)
-        self.check_equi.Bind(  wx.EVT_CHECKBOX, self.on_eq)
-        self.check_sder.Bind(  wx.EVT_CHECKBOX, self.on_sder)
-        self.check_grad.Bind(  wx.EVT_CHECKBOX, self.on_grad)
-        self.check_qn.Bind(    wx.EVT_CHECKBOX, self.on_qn)
-        self.ok_button.Bind(   wx.EVT_BUTTON, self.on_close)
+        self.check_equi.Bind(  wx.EVT_CHECKBOX, self.on_eq   )
+        self.check_sder.Bind(  wx.EVT_CHECKBOX, self.on_sder )
+        self.check_grad.Bind(  wx.EVT_CHECKBOX, self.on_grad )
+        self.check_qn.Bind(    wx.EVT_CHECKBOX, self.on_qn   )
+        self.ok_button.Bind(   wx.EVT_BUTTON, self.on_close  )
                 
         self.check_clust.SetValue( True )
         self.check_sder.SetValue(  True )
@@ -478,7 +471,6 @@ class MainFrame ( wx.Frame ):
         self.flatnose      = wx.Slider(self, wx.ID_ANY, size=wx.Size(175,-1),value=10,
                                        style = wx.SL_HORIZONTAL)         
                                                                     
-
         self.saveline    = wx.TextCtrl(self, -1, value='bez_coords.txt',
             size=wx.Size(150,-1),
             style=wx.TE_PROCESS_ENTER)                              
@@ -501,8 +493,8 @@ class MainFrame ( wx.Frame ):
 
         # Set up how everything is laid out 
         hbox1  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox1.Add( self.cfile_button, wx.ALIGN_CENTER | wx.ALL, 5 )          
-        hbox1.Add( self.load_button,  wx.ALIGN_CENTER | wx.ALL, 5 )  
+        hbox1.Add( self.cfile_button,  0, wx.ALIGN_CENTER | wx.ALL, 5 )          
+        hbox1.Add( self.load_button,   0, wx.ALIGN_CENTER | wx.ALL, 5 )  
 
         hbox2  = wx.BoxSizer( wx.HORIZONTAL )  
         hbox2.Add( self.example_text3, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
@@ -510,18 +502,18 @@ class MainFrame ( wx.Frame ):
         
         hbox3  = wx.BoxSizer( wx.HORIZONTAL )  
         hbox3.Add( self.example_text5, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
-        hbox3.Add( self.weight,  0,       wx.ALIGN_CENTER | wx.ALL, 5 ) 
-        hbox3.Add( self.resetwt,  0,      wx.ALIGN_CENTER | wx.ALL, 5 ) 
+        hbox3.Add( self.weight,        0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
+        hbox3.Add( self.resetwt,       0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
                
         hbox4  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox4.Add( self.saveline, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox4.Add( self.saveline,      0, wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox4.AddSpacer(10)
-        hbox4.Add( self.save_points,  0, wx.ALIGN_CENTER | wx.ALL, 5 )       
+        hbox4.Add( self.save_points,   0, wx.ALIGN_CENTER | wx.ALL, 5 )       
 
         hbox5  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox5.Add( self.control_show, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox5.Add( self.control_show,     wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox5.AddSpacer(10)
-        hbox5.Add( self.show_der,   wx.ALIGN_CENTER | wx.ALL, 5 )     
+        hbox5.Add( self.show_der,         wx.ALIGN_CENTER | wx.ALL, 5 )     
         
         hbox6 =  wx.BoxSizer( wx.HORIZONTAL )  
         hbox6.Add( self.example_text7, 0, wx.ALIGN_CENTER | wx.ALL, 5 )   
@@ -529,46 +521,46 @@ class MainFrame ( wx.Frame ):
         hbox6.Add( self.example_text8, 0, wx.ALIGN_CENTER | wx.ALL, 5 )  
         
         hbox7  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox7.Add( self.numpoints, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox7.Add( self.numpoints, wx.ALIGN_CENTER      | wx.ALL, 5 )
         hbox7.AddSpacer(10)
         hbox7.Add( self.point_button,   wx.ALIGN_CENTER | wx.ALL, 5 )    
         
         
         hbox8  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox8.Add( self.savecpline, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox8.Add( self.savecpline,  0, wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox8.AddSpacer(10)
-        hbox8.Add( self.save_conpts,  0, wx.ALIGN_CENTER | wx.ALL, 5 )     
+        hbox8.Add( self.save_conpts, 0, wx.ALIGN_CENTER | wx.ALL, 5 )     
         
         hbox9  = wx.BoxSizer( wx.HORIZONTAL )  
         hbox9.Add( self.savep3dline, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox9.AddSpacer(10)
-        hbox9.Add( self.save_p3d,  0, wx.ALIGN_CENTER | wx.ALL, 5 )   
+        hbox9.Add( self.save_p3d,    0, wx.ALIGN_CENTER | wx.ALL, 5 )   
         
         hbox10  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox10.Add( self.order, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox10.Add( self.order,      0, wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox10.AddSpacer(10)
-        hbox10.Add( self.load_cp,  0, wx.ALIGN_CENTER | wx.ALL, 5 )   
+        hbox10.Add( self.load_cp,    0, wx.ALIGN_CENTER | wx.ALL, 5 )   
         
         hbox11  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox11.Add( self.optits, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox11.Add( self.optits,     0, wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox11.AddSpacer(10)
-        hbox11.Add( self.noiter,  0, wx.ALIGN_CENTER | wx.ALL, 5 )   
+        hbox11.Add( self.noiter,     0, wx.ALIGN_CENTER | wx.ALL, 5 )   
 
         vbox1  = wx.BoxSizer( wx.VERTICAL )
         #vbox1.AddSpacer(10)
-        vbox1.Add(self.example_text1, 0, wx.ALIGN_CENTER | wx.ALL, 1)    
-        vbox1.Add(self.fileline,      0, wx.ALIGN_CENTER | wx.ALL, 1)   
+        vbox1.Add(self.example_text1, 0, wx.ALIGN_CENTER | wx.ALL, 1 )    
+        vbox1.Add(self.fileline,      0, wx.ALIGN_CENTER | wx.ALL, 1 )   
         vbox1.AddSpacer(5) 
-        vbox1.Add(hbox1,              0, wx.ALIGN_CENTER | wx.ALL, 1)   
+        vbox1.Add(hbox1,              0, wx.ALIGN_CENTER | wx.ALL, 1 )   
         vbox1.AddSpacer(10) 
-        vbox1.Add(self.example_text2, 0, wx.ALIGN_CENTER | wx.ALL, 1)
-        vbox1.Add(hbox10,         0, wx.ALIGN_CENTER | wx.ALL, 1 )
+        vbox1.Add(self.example_text2, 0, wx.ALIGN_CENTER | wx.ALL, 1 )
+        vbox1.Add(hbox10,             0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5)  
-        vbox1.Add(self.example_text4, 0, wx.ALIGN_CENTER | wx.ALL, 1)
+        vbox1.Add(self.example_text4, 0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.Add(hbox7,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5)  
         vbox1.Add(hbox2,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
-        vbox1.Add(hbox11,            0, wx.ALIGN_CENTER | wx.ALL, 1 )
+        vbox1.Add(hbox11,             0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5) 
         vbox1.Add( self.bez_button,   0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5)
@@ -764,7 +756,7 @@ class MainFrame ( wx.Frame ):
        # In this version do not cluster according to 2nd der mag
        if self.pointwin.check_grad.GetValue(): otype = 1
        else:                                   otype = 0 
-       self.load_sp()     
+    
       # print self.itopt 
        Hk = numpy.identity(self.N*2)
        Pout,xb,yb = bezier_sing( pts,self.itopt,otype,curvnum,spts,split,Hk,x,y,wt,self.pdis,P )
@@ -783,19 +775,39 @@ class MainFrame ( wx.Frame ):
                 Pinu1,Pinu2,Pinl1,Pinl2 = self.init_P()
             # Thinking it would be a good idea to feed in the total number of points
             # on both the upper and lower surface so the fortran code can make adjustments
-            self.split_pts()              
+            self.split_pts()       
+            self.load_sp() 
             if self.noiter.GetValue() == False and self.redraw == False:
                self.itopt = self.optits.GetValue()
+            
+            # Upper surface 
+            ptsle = int( self.pdis[1]*self.ptsu )
+            ptste = int( self.pdis[2]*self.ptsu )
+            ptsm  = self.ptsu - ptsle - ptste 
+            x1    = self.u1pct - self.pdis[3] 
+            ulpts1 = int(ptsm*( (x1)/(1.0 - self.pdis[3] -self.pdis[4]) )) + ptsle             
+            utpts1 = self.ptsu - ulpts1
+            
+            # lower surface 
+            ptsle = int( self.pdis[1]*self.ptsl )
+            ptste = int( self.pdis[2]*self.ptsl )
+            ptsm  = self.ptsl - ptsle - ptste 
+            x1    = self.l1pct - self.pdis[3] 
+            llpts1 = int(ptsm*( (x1)/(1.0 - self.pdis[3] -self.pdis[4]) )) + ptsle             
+            ltpts1 = self.ptsu - llpts1 
                
             ulpts = int(self.u1pct*float(self.ptsu))
             utpts = self.ptsu - ulpts      
+            
             llpts = int(self.l1pct*float(self.ptsl))
             ltpts = self.ptsl - llpts      
         
-            self.Poutu1,self.xbu1,self.ybu1 = self.gen_bez_sing(Pinu1,self.xu1,self.yu1,self.wtu1,self.ptsu,ulpts,self.u1pct,1)
-            self.Poutl1,self.xbl1,self.ybl1 = self.gen_bez_sing(Pinl1,self.xl1,self.yl1,self.wtl1,self.ptsl,llpts,self.l1pct,1)
-            self.Poutu2,self.xbu2,self.ybu2 = self.gen_bez_sing(Pinu2,self.xu2,self.yu2,self.wtu2,self.ptsu,utpts,self.u1pct,2)
-            self.Poutl2,self.xbl2,self.ybl2 = self.gen_bez_sing(Pinl2,self.xl2,self.yl2,self.wtl2,self.ptsl,ltpts,self.l1pct,2)
+            print ulpts1, ulpts  
+            
+            self.Poutu1,self.xbu1,self.ybu1 = self.gen_bez_sing(Pinu1,self.xu1,self.yu1,self.wtu1,self.ptsu,ulpts1,self.u1pct,1)
+            self.Poutl1,self.xbl1,self.ybl1 = self.gen_bez_sing(Pinl1,self.xl1,self.yl1,self.wtl1,self.ptsl,llpts1,self.l1pct,1)
+            self.Poutu2,self.xbu2,self.ybu2 = self.gen_bez_sing(Pinu2,self.xu2,self.yu2,self.wtu2,self.ptsu,utpts1,self.u1pct,2)
+            self.Poutl2,self.xbl2,self.ybl2 = self.gen_bez_sing(Pinl2,self.xl2,self.yl2,self.wtl2,self.ptsl,ltpts1,self.l1pct,2)
  
             self.plotwin.axes.plot(self.xbu1,self.ybu1,'b',self.xbu2,self.ybu2,'b',self.xbl1,self.ybl1,'b',self.xbl2,self.ybl2,'b')
             self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
@@ -874,6 +886,7 @@ class MainFrame ( wx.Frame ):
     def compders( self,x,y ):
         dy,dx   = numpy.diff( y ), numpy.diff( x )
         dydx    = numpy.divide(dy,dx)    
+        print len(dydx),len(x[:-1])
         ddy,ddx = numpy.diff( dydx ), numpy.diff( x[:-1] )
         dydx2   = numpy.divide(ddy,ddx)
         return dydx,dydx2 
@@ -908,21 +921,6 @@ class MainFrame ( wx.Frame ):
                     ilast = i 
         P0.append(x[-1])            
         return P0                
-
-# ------------------------------------------------------------------------
-# Function that tries to divide initial control points
-# ------------------------------------------------------------------------ 
-    def get_p0( self ):
-        # set a max for the second derivative
-        max2d   = 7.0 
-        # compute derivatives 
-        dydxu, dydx2u = self.compders( self.xu, self.yu )
-        dydxl, dydx2l = self.compders( self.xl, self.yl )
-        utot          = self.compmag( self.xu, self.yu, dydx2u, max2d)
-        ltot          = self.compmag( self.xl, self.yl, dydx2l, max2d)
-        self.Pinux = self.setpts( self.xu,self.yu,dydx2u,utot,self.N )
-        self.Pinlx = self.setpts( self.xl,self.yl,dydx2l,ltot,self.N )
-
 
 # ------------------------------------------------------------------------
 # Function that loads values for point distribution from GUI into array 
@@ -965,16 +963,18 @@ class MainFrame ( wx.Frame ):
             if (self.canrs):
                 self.xcu1,self.ycu1 = self.Poutu1[0][:], self.Poutu1[1][:]
                 self.xcl1,self.ycl1 = self.Poutl1[0][:], self.Poutl1[1][:]
+                self.xcu2,self.ycu2 = self.Poutu2[0][:], self.Poutu2[1][:]
+                self.xcl2,self.ycl2 = self.Poutl2[0][:], self.Poutl2[1][:]
+                
                 self.plotwin.axes.plot(self.xcu1,self.ycu1,ls='--', c='#666666',
                       marker='x', mew=2, mec='#204a87' )
                 self.plotwin.axes.plot(self.xcl1,self.ycl1,ls='--', c='#666666',
                       marker='x', mew=2, mec='#204a87' )
-                self.xcu2,self.ycu2 = self.Poutu2[0][:], self.Poutu2[1][:]
-                self.xcl2,self.ycl2 = self.Poutl2[0][:], self.Poutl2[1][:]
                 self.plotwin.axes.plot(self.xcu2,self.ycu2,ls='--', c='#666666',
                       marker='x', mew=2, mec='#204a87' )
                 self.plotwin.axes.plot(self.xcl2,self.ycl2,ls='--', c='#666666',
                       marker='x', mew=2, mec='#204a87' )
+                      
                 self.plotwin.canvas.draw()
                 temp = len( self.plotwin.axes.lines ) - 1
                 self.cpcurves = [temp,temp-1,temp-2,temp-3] 
@@ -1001,12 +1001,12 @@ class MainFrame ( wx.Frame ):
         self.plotwin.Show()
         if self.dershown:
             self.plotwin.axes.cla()
-            self.plotwin.axes.plot(self.xu1, self.yu1, 'ko', self.xu2, self.yu2, 'ko') 
-            self.plotwin.axes.plot(self.xl1, self.yl1, 'ko', self.xl2, self.yl2, 'ko') 
+            self.plotwin.axes.plot(self.xu1, self.yu1, 'ko', self.xu2, self.yu2, 'ko' ) 
+            self.plotwin.axes.plot(self.xl1, self.yl1, 'ko', self.xl2, self.yl2, 'ko' ) 
             self.plotwin.axes.plot(self.xu1, self.yu1, 'g--',self.xl1, self.yl1, 'g--')  
             self.plotwin.axes.plot(self.xu2, self.yu2, 'g--',self.xl2, self.yl2, 'g--') 
-            self.plotwin.axes.plot(self.xbu1,self.ybu1,'b',  self.xbl1,self.ybl1,'b')
-            self.plotwin.axes.plot(self.xbu2,self.ybu2,'b',  self.xbl2,self.ybl2,'b')
+            self.plotwin.axes.plot(self.xbu1,self.ybu1,'b',  self.xbl1,self.ybl1,'b'  )
+            self.plotwin.axes.plot(self.xbu2,self.ybu2,'b',  self.xbl2,self.ybl2,'b'  )
             if self.cpshown:
                 self.cpshown = False
                 self.show_cpts( event )
@@ -1019,12 +1019,12 @@ class MainFrame ( wx.Frame ):
                 for i in range(len(self.xbu1)):
                     xbtu.append( self.xbu1[i] )
                     ybtu.append( self.ybu1[i] )
-                    if i > 0:
-                        print self.xbu1[i], self.xbu1[i]-self.xbu1[i-1]
+                    #if i > 0:
+                    #    print self.xbu1[i], self.ybu1[i], self.xbu1[i]-self.xbu1[i-1]
                 for i in range(len(self.xbu2)-1):
                     xbtu.append( self.xbu2[i+1] )
                     ybtu.append( self.ybu2[i+1] )
-                    print self.xbu2[i+1], self.xbu2[i+1]-self.xbu2[i]
+                    #print self.xbu2[i+1], self.ybu2[i+1],self.xbu2[i+1]-self.xbu2[i]
                 for i in range(len(self.xbl1)):
                     xbtl.append( self.xbl1[i] )
                     ybtl.append( self.ybl1[i] )
@@ -1037,10 +1037,16 @@ class MainFrame ( wx.Frame ):
                 #self.plotwin.axes.plot( xbtl,ybtl )
                 self.plotwin.canvas.draw() 
                 dydxu,dydx2u = self.compders( xbtu,ybtu )
-                dydxl,dydx2l = self.compders( xbtl,ybtl )                
+                dydxl,dydx2l = self.compders( xbtl,ybtl )        
+                
+                for i in range(len(xbtu)-2):
+                    dx   = xbtu[i+1] - xbtu[i]
+                    dy   = ybtu[i+1] - ybtu[i] 
+                    dydd = dydxu[i+1] - dydxu[i] 
+                    print xbtu[i],dydd, dy, dx
                 self.plotwin.axes.cla()
-                self.plotwin.axes.plot(xbtu[:-1],dydxu,'g',  xbtu[:-1],dydxl,  'g--')
-                self.plotwin.axes.plot(xbtl[:-2],dydx2u,'b', xbtl[:-2],dydx2l, 'b--')
+                self.plotwin.axes.plot(xbtu[:-1],dydxu,'g',  xbtl[:-1],dydxl,  'g--')
+                self.plotwin.axes.plot(xbtu[:-2],dydx2u,'b', xbtl[:-2],dydx2l, 'b--')
                 labels = ['$dy/dx$ (upper)', '$dy/dx$ (lower)','$d^2 y/dx^2$ (upper)', '$d^2y/dx^2$ (lower)']
                 self.plotwin.axes.legend( labels )
                 self.plotwin.axes.set_ylim( [-4,4] )
@@ -1070,10 +1076,16 @@ class MainFrame ( wx.Frame ):
             if savef == True:            
                 fd        = os.open(filetitle, os.O_RDWR|os.O_CREAT )
                 xout,yout = [],[]
-                xout.extend( self.xbl[::-1] )
-                xout.extend( self.xbu[1:] )
-                yout.extend( self.ybl[::-1] )
-                yout.extend( self.ybu[1:] )
+                xout.extend( self.xbl2[::-1]     )
+                xout.extend( self.xbl1[::-1][1:] )
+                yout.extend( self.ybl2[::-1]     )
+                yout.extend( self.ybl1[::-1][1:] )
+                
+                xout.extend( self.xbu1[1:] )
+                xout.extend( self.xbu2[1:] )
+                yout.extend( self.ybu1[1:] )
+                yout.extend( self.ybu2[1:] )
+                
                 for i in range(len(xout)):
                     writestr = ''.join([str(xout[i]),'      ', str(yout[i]),'\n'])   
                     os.write(fd,writestr)
@@ -1215,7 +1227,6 @@ class MainFrame ( wx.Frame ):
 class MainApp(MainFrame):
     def __init__(self, parent):
         MainFrame.__init__(self, parent)
-
         bSizer1 = wx.BoxSizer( wx.VERTICAL )
         self.plotwin  = PlotWindow(self)       
         self.pointwin = PointDisWindow(self)

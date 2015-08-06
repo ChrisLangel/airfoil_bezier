@@ -2,13 +2,13 @@
      &                         x,y,wt,pdis,Pin,Pout,xb,yb  )
       implicit none
       integer, intent(in) :: l,N,pts,optit,otype,segnum,spts 
-      real(kind=8), intent(in) :: split 
-      real(kind=8), dimension(5),    intent(in) :: pdis
-      real(kind=8), dimension(l),    intent(in) :: x,y,wt
-      real(kind=8), dimension(2,N),  intent(in) :: Pin
-      real(kind=8), dimension(2*N,2*N), intent(in) :: Hko 
-      real(kind=8), dimension(spts), intent(out) :: xb,yb
-      real(kind=8), dimension(2,N), intent(out) :: Pout 
+      real(kind=8),                    intent(in) :: split 
+      real(kind=8), dimension(5),      intent(in) :: pdis
+      real(kind=8), dimension(l),      intent(in) :: x,y,wt
+      real(kind=8), dimension(2,N),    intent(in) :: Pin
+      real(kind=8), dimension(2*N,2*N),intent(in) :: Hko 
+      real(kind=8), dimension(spts),   intent(out) :: xb,yb
+      real(kind=8), dimension(2,N),    intent(out) :: Pout 
 !     local variables      
       integer :: i,j,mpts,lpts,tpts 
       real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep,scl,shft,lesc 
@@ -47,9 +47,15 @@
  
       ! Split the points on the particular surface based on the
       ! parameter 'split' 
-      ! Maybe do this in python 
-      lpts = int( split*real(pts,kind=8) )
-      tpts = pts - lpts  
+      ! Maybe do this in python
+      if (segnum .eq. 1) then 
+         lpts = spts
+         tpts = pts - lpts
+      else 
+         tpts = spts
+         lpts = pts - tpts 
+      end if 
+          
       allocate( tl(lpts), tt(tpts) ) 
       tl = tv(1:lpts)
       tt = tv(lpts+1:pts)
@@ -58,12 +64,20 @@
       scl = 1.0D0/tl(lpts) 
       do i = 1,lpts
          tl(i) = tl(i)*scl
+!         if (i .gt. 1) then
+!            write(*,*) tl(i), (tl(i) - tl(i-1))
+!         end if   
       end do 
+
+      write(*,*) 'Break'
 
       shft = tt(1)
       scl  = 1.0D0/(tt(tpts)-tt(1))
       do i = 1,tpts 
          tt(i) = (tt(i)-shft)*scl
+!         if (i .gt. 1) then
+!            write(*,*) tt(i), (tt(i) - tt(i-1))
+!         end if
       end do 
 
       
@@ -115,63 +129,9 @@
          xb      = mptsu(:,1)
          yb      = mptsu(:,2)
 !----------------------------------------------------------------
-      ! second  "quadrant"  1st,last should be zero 
+      ! tail segment 1st,last should be zero 
       ! the y-coordinate of 2nd point does not move 
       else if (segnum .eq. 2) then
-         allocate( mptsu(tpts,2),ttemp(tpts,N),tmat(tpts,N) )          
-         call evenspace(mpts,tpts,tx,ty,tms,tt) 
-         call tmatrix(tt,tpts,N,tmat)
-         ttemp   = matmul(tmat, transpose(a)  )  
-         mptsu   = matmul(ttemp,transpose(Pin))            
-         xb      = mptsu(:,1)
-         yb      = mptsu(:,2)
-         ! Run the optimization loop
-         Ptemp = Pin
-         do i = 1,optit
-           call compgrad(l,N,tpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
-           ! Now tweak based on which segment we are looking at
-           gradvec(2,2) = 0.0D0
-           ! renormalize
-           call normgrad(N,gradvec)
-           call linesearch(l,N,tpts,lesc,
-     &                  x,y,wt,ttemp,Ptemp,gradvec,Pout)
-           Ptemp = Pout
-         end do
-         mptsu   = matmul(ttemp,transpose(Ptemp))            
-         xb      = mptsu(:,1)
-         yb      = mptsu(:,2)
-!----------------------------------------------------------------
-      ! third "quadrant"  1st,last should be zero 
-      ! the x-coordinate of 2nd point does not move 
-      ! the y-coordinate of the N-1 point does not move
-      else if (segnum .eq. 3) then
-         allocate( mptsu(lpts,2),ttemp(lpts,N),tmat(lpts,N) )          
-         call evenspace(mpts,lpts,tx,ty,tms,tl) 
-         call tmatrix(tl,lpts,N,tmat)
-         ttemp   = matmul(tmat, transpose(a)  )  
-         mptsu   = matmul(ttemp,transpose(Pin))            
-         xb      = mptsu(:,1)
-         yb      = mptsu(:,2)
-         ! Run the optimization loop
-         Ptemp = Pin
-         do i = 1,optit
-           call compgrad(l,N,lpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
-           ! Now tweak based on which segment we are looking at
-           gradvec(1,2  ) = 0.0D0
-           gradvec(2,N-1) = 0.0D0
-           ! renormalize
-           call normgrad(N,gradvec)
-           call linesearch(l,N,lpts,lesc,
-     &                  x,y,wt,ttemp,Ptemp,gradvec,Pout)
-           Ptemp = Pout
-         end do
-         mptsu   = matmul(ttemp,transpose(Ptemp))            
-         xb      = mptsu(:,1)
-         yb      = mptsu(:,2)
-!----------------------------------------------------------------
-      ! fourth "quadrant"  1st,last should be zero 
-      ! the y-coordinate of 2nd point does not move 
-      else if (segnum .eq. 4) then
          allocate( mptsu(tpts,2),ttemp(tpts,N),tmat(tpts,N) )          
          call evenspace(mpts,tpts,tx,ty,tms,tt) 
          call tmatrix(tt,tpts,N,tmat)
