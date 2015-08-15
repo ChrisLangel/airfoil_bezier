@@ -750,7 +750,7 @@ class MainFrame ( wx.Frame ):
 #   x,y     -- Arrays of points 
 #   curvnum -- By inserting a number here we know which points to keep fixed etc.
 #              to allow the end points to have    
-    def gen_bez_sing( self,P,x,y,wt,pts,spts,split,curvnum ):
+    def gen_bez_sing( self,P,x,y,wt,pts,spts,split,curvnum,sder ):
        self.N = self.order.GetValue() 
 
        # In this version do not cluster according to 2nd der mag
@@ -759,7 +759,7 @@ class MainFrame ( wx.Frame ):
     
       # print self.itopt 
        Hk = numpy.identity(self.N*2)
-       Pout,xb,yb = bezier_sing( pts,self.itopt,otype,curvnum,spts,split,Hk,x,y,wt,self.pdis,P )
+       Pout,xb,yb = bezier_sing( pts,self.itopt,otype,curvnum,sder,spts,split,Hk,x,y,wt,self.pdis,P )
        return Pout,xb,yb 
 
  
@@ -796,18 +796,23 @@ class MainFrame ( wx.Frame ):
             llpts1 = int(ptsm*( (x1)/(1.0 - self.pdis[3] -self.pdis[4]) )) + ptsle             
             ltpts1 = self.ptsu - llpts1 
                
-            ulpts = int(self.u1pct*float(self.ptsu))
-            utpts = self.ptsu - ulpts      
-            
-            llpts = int(self.l1pct*float(self.ptsl))
-            ltpts = self.ptsl - llpts      
+            #ulpts = int(self.u1pct*float(self.ptsu))
+            #utpts = self.ptsu - ulpts      
+            #llpts = int(self.l1pct*float(self.ptsl))
+            #ltpts = self.ptsl - llpts      
         
-            print ulpts1, ulpts  
+            #print ulpts1, ulpts  
             
-            self.Poutu1,self.xbu1,self.ybu1 = self.gen_bez_sing(Pinu1,self.xu1,self.yu1,self.wtu1,self.ptsu,ulpts1,self.u1pct,1)
-            self.Poutl1,self.xbl1,self.ybl1 = self.gen_bez_sing(Pinl1,self.xl1,self.yl1,self.wtl1,self.ptsl,llpts1,self.l1pct,1)
-            self.Poutu2,self.xbu2,self.ybu2 = self.gen_bez_sing(Pinu2,self.xu2,self.yu2,self.wtu2,self.ptsu,utpts1,self.u1pct,2)
-            self.Poutl2,self.xbl2,self.ybl2 = self.gen_bez_sing(Pinl2,self.xl2,self.yl2,self.wtl2,self.ptsl,ltpts1,self.l1pct,2)
+            self.Poutu1,self.xbu1,self.ybu1 = self.gen_bez_sing(Pinu1,self.xu1,self.yu1,self.wtu1,self.ptsu,ulpts1,self.u1pct,1,0.0)
+            self.Poutl1,self.xbl1,self.ybl1 = self.gen_bez_sing(Pinl1,self.xl1,self.yl1,self.wtl1,self.ptsl,llpts1,self.l1pct,1,0.0)
+
+            # Compute second derivative at the end point for each surface 
+            sdu = self.end_der(self.xbu1,self.ybu1)
+            sdl = self.end_der(self.xbl1,self.ybl1)
+
+            self.Poutu2,self.xbu2,self.ybu2 = self.gen_bez_sing(Pinu2,self.xu2,self.yu2,self.wtu2,self.ptsu,utpts1,self.u1pct,2,sdu)
+            self.Poutl2,self.xbl2,self.ybl2 = self.gen_bez_sing(Pinl2,self.xl2,self.yl2,self.wtl2,self.ptsl,ltpts1,self.l1pct,2,sdl)
+
  
             self.plotwin.axes.plot(self.xbu1,self.ybu1,'b',self.xbu2,self.ybu2,'b',self.xbl1,self.ybl1,'b',self.xbl2,self.ybl2,'b')
             self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
@@ -821,6 +826,22 @@ class MainFrame ( wx.Frame ):
             if self.cpshown:
                 self.show_cpts( event )
                 self.show_cpts( event )
+
+    # Compute the second derivative at the end point of segment
+    def end_der( self,x,y ):
+       ind = len(x)
+       dyl = y[ind-1] - y[ind-2]
+       dxl = x[ind-1] - x[ind-2]
+       dydxl = dyl/dxl
+       
+       dylm = y[ind-2] - y[ind-3]
+       dxlm = x[ind-2] - x[ind-3]
+       dydxlm = dylm/dxlm
+       print  (dydxl - dydxlm)/dxl 
+       return (dydxl - dydxlm)/dxl 
+       
+       
+        
 
     def init_P( self ):      
        N = self.order.GetValue() 

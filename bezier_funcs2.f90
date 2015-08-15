@@ -1,8 +1,8 @@
-      subroutine bezier_sing( l,N,pts,optit,otype,segnum,spts,split,Hko,
-     &                         x,y,wt,pdis,Pin,Pout,xb,yb  )
+      subroutine bezier_sing( l,N,pts,optit,otype,segnum,sder,spts,
+     &                        split,Hko,x,y,wt,pdis,Pin,Pout,xb,yb  )
       implicit none
       integer, intent(in) :: l,N,pts,optit,otype,segnum,spts 
-      real(kind=8),                    intent(in) :: split 
+      real(kind=8),                    intent(in) :: sder,split 
       real(kind=8), dimension(5),      intent(in) :: pdis
       real(kind=8), dimension(l),      intent(in) :: x,y,wt
       real(kind=8), dimension(2,N),    intent(in) :: Pin
@@ -69,7 +69,6 @@
 !         end if   
       end do 
 
-      write(*,*) 'Break'
 
       shft = tt(1)
       scl  = 1.0D0/(tt(tpts)-tt(1))
@@ -115,13 +114,14 @@
          ! points!
          Ptemp = Pin 
          do i = 1,optit
-           call compgrad(l,N,lpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
+           call compgrad(l,N,lpts,segnum,lesc,sder,
+     &                   x,y,wt,ttemp,Ptemp,gradvec)
            ! Now tweak based on which segment we are looking at
            gradvec(1,2  ) = 0.0D0
            gradvec(2,N-1) = 0.0D0
            ! renormalize
            call normgrad(N,gradvec)
-           call linesearch(l,N,lpts,lesc,
+           call linesearch(l,N,lpts,segnum,lesc,sder,
      &                  x,y,wt,ttemp,Ptemp,gradvec,Pout)
            Ptemp = Pout
          end do
@@ -142,12 +142,13 @@
          ! Run the optimization loop
          Ptemp = Pin
          do i = 1,optit
-           call compgrad(l,N,tpts,lesc,x,y,wt,ttemp,Ptemp,gradvec)
+           call compgrad(l,N,tpts,segnum,lesc,sder,
+     &                   x,y,wt,ttemp,Ptemp,gradvec)
            ! Now tweak based on which segment we are looking at
            gradvec(2,2) = 0.0D0
            ! renormalize
            call normgrad(N,gradvec)
-           call linesearch(l,N,tpts,lesc,
+           call linesearch(l,N,tpts,segnum,lesc,sder,
      &                  x,y,wt,ttemp,Ptemp,gradvec,Pout)
            Ptemp = Pout
          end do
@@ -162,169 +163,6 @@
       end subroutine
 
 
-
-      subroutine bezier_opt_main( lu,ll,N,ptsu,ptsl,optit,otyp,lesc,Hk,
-     &                            xu,yu,xl,yl,wtu,wtl,pdis,Pinu,Pinl,
-     &                            Poutu,Poutl,xbu,ybu,xbl,ybl) 
-      implicit none
-      integer, intent(in) :: lu,ll,N,ptsu,ptsl,optit,otyp
-      real(kind=8), intent(in) :: lesc
-      real(kind=8), dimension(5),    intent(in)  :: pdis 
-      real(kind=8), dimension(lu),   intent(in)  :: xu,yu,wtu
-      real(kind=8), dimension(ll),   intent(in)  :: xl,yl,wtl
-      real(kind=8), dimension(2,N),  intent(in)  :: Pinu,Pinl
-      real(kind=8), dimension(2*N,2*N), intent(in) :: Hk 
-      real(kind=8), dimension(ptsu), intent(out) :: xbu,ybu
-      real(kind=8), dimension(ptsl), intent(out) :: xbl,ybl
-      real(kind=8), dimension(2,N),  intent(out) :: Poutu,Poutl 
-      ! variables used in subroutine
-      integer :: i,j,mpts
-      real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep
-      real(kind=8), dimension(ptsu,N) :: ttempu,tmatu
-      real(kind=8), dimension(N,N)    :: a
-      real(kind=8), dimension(ptsu,2) :: mptsu 
-      real(kind=8), dimension(ptsu)   :: tu
-      real(kind=8), dimension(ptsl,N) :: ttempl,tmatl
-      real(kind=8), dimension(ptsl,2) :: mptsl 
-      real(kind=8), dimension(ptsl)   :: tl
-      real(kind=8), dimension(2,N)    :: gradvec,Ptemp,stepd
-      real(kind=8), dimension(2*N)    :: stepdir,pveck,fltgrdk
-      real(kind=8), dimension(2*N,2*N) :: Hku,Hkl  
-      real(kind=8), dimension(:), allocatable :: tms,tx,ty
-      real(kind=8), dimension(:,:), allocatable :: mat,mtemp,dpts
-      ! Initialize both Quasi-Newton Matrices
-      Hkl = Hk
-      Hku = Hk 
-      ! Store info about spacing  
-      pcle = pdis(2)
-      pcte = pdis(3)
-      lep  = pdis(4)
-      tep  = pdis(5) 
-
-      ! get the polynomial basis in matrix form 
-      call bernstein_matrix(N,a)
-      ! 
-      if (pdis(1) > 0.0D0) then
-         call gettvec2(ptsu,pcle,pcte,lep,tep,tu)
-         call gettvec2(ptsl,pcle,pcte,lep,tep,tl)
-      else
-         call gettvec(ptsu,tu)
-         call gettvec(ptsl,tl)
-      end if 
-      ! This should help with making the leading edge spacing constant
-      ! *************************************************************
-      mpts = 15000
-      allocate( tms(mpts),tx(mpts),ty(mpts) )  
-      allocate( mat(mpts,N), mtemp(mpts,N), dpts(mpts,2) ) 
-      ! Get an initial equi-spaced vector with many points
-      call gettvec(mpts,tms)      
-      call tmatrix(tms,mpts,N,mat)
-      mtemp   = matmul(mat, transpose(a)  )  
-      ! Get dense collection of points from upper surface
-      dpts    = matmul(mtemp,transpose(Pinu))
-      tx      = dpts(:,1)
-      ty      = dpts(:,2)
-      call evenspace(mpts,ptsu,tx,ty,tms,tu)
-
-      ! Lower Surface 
-      mtemp   = matmul(mat, transpose(a)  )  
-      ! Get dense collection of points from upper surface
-      dpts    = matmul(mtemp,transpose(Pinl))
-      tx      = dpts(:,1)
-      ty      = dpts(:,2)
-      call evenspace(mpts,ptsl,tx,ty,tms,tl)
-      deallocate( tms,tx,ty )
-      deallocate( mat, mtemp, dpts )
-      !***************************************************************
-      
-      ! generate an (npts x N) matrix [t^N,...,t,1]  
-      call tmatrix(tu,ptsu,N,tmatu)
-      ttempu  = matmul(tmatu, transpose(a)  )  
-      mptsu   = matmul(ttempu,transpose(Pinu))            
-      xbu  = mptsu(:,1)
-      ybu  = mptsu(:,2)
-
-
-      call tmatrix(tl,ptsl,N,tmatl)
-      ttempl = matmul(tmatl, transpose(a)  )  
-      mptsl   = matmul(ttempl,transpose(Pinl))            
-      xbl  = mptsl(:,1)
-      ybl  = mptsl(:,2)
-
-
-      if (otyp == 1) then 
-      Ptemp = Pinu
-      do i = 1,optit
-        call compgrad(lu,N,ptsu,lesc,xu,yu,wtu,ttempu,Ptemp,gradvec)
-        call linesearch(lu,N,ptsu,lesc,
-     &                  xu,yu,wtu,ttempu,Ptemp,gradvec,Poutu)
-        Ptemp = Poutu
-      end do
-      mptsu   = matmul(ttempu,transpose(Ptemp))            
-      xbu  = mptsu(:,1)
-      ybu  = mptsu(:,2)
-      else 
-!     ----------------------------------------------------------      
-      pveck   = 0.0D0 
-      fltgrdk = 0.0D0  
-      Ptemp   = Pinu
-      do i = 1,optit
-         call compqn(i,lu,N,ptsu,lesc,xu,yu,wtu,ttempu,Ptemp,Hku,
-     &                      pveck,fltgrdk,stepdir)
-         stepd(1,:)   = stepdir(1:N) 
-         stepd(2,:)   = stepdir(N+1:2*N)
-         call linesearch(ll,N,ptsu,lesc,
-     &                  xu,yu,wtu,ttempu,Ptemp,stepd,Poutu)
-         Ptemp = Poutu
-      end do
-       
-      mptsu   = matmul(ttempu,transpose(Ptemp))            
-      xbu  = mptsu(:,1)
-      ybu  = mptsu(:,2)
-!     -----------------------------------------------------------
-      end if 
-
-      call tmatrix(tl,ptsl,N,tmatl)
-      ttempl = matmul(tmatl, transpose(a)  ) 
-
-      if (otyp == 1) then
-      Ptemp = Pinl
-      do i = 1,optit
-        call compgrad(ll,N,ptsl,lesc,xl,yl,wtl,ttempl,Ptemp,gradvec)
-        call linesearch(ll,N,ptsl,lesc,
-     &                  xl,yl,wtl,ttempl,Ptemp,gradvec,Poutl)
-        Ptemp = Poutl
-      end do
-      mptsl   = matmul(ttempl,transpose(Ptemp))            
-      xbl    = mptsl(:,1)
-      ybl    = mptsl(:,2)
-      else
-!     ----------------------------------------------------------      
-      pveck   = 0.0D0 
-      fltgrdk = 0.0D0  
-      Ptemp   = Pinl
-      do i = 1,optit
-         call compqn(i,ll,N,ptsl,lesc,xl,yl,wtl,ttempl,Ptemp,Hkl,
-     &                      pveck,fltgrdk,stepdir)
-         stepd(1,:)   = stepdir(1:N) 
-         stepd(2,:)   = stepdir(N+1:2*N)
-         call linesearch(ll,N,ptsl,lesc,
-     &                  xl,yl,wtl,ttempl,Ptemp,stepd,Poutl)
-         Ptemp = Poutl
-      end do
-       
-      mptsl   = matmul(ttempl,transpose(Ptemp))            
-      xbl  = mptsl(:,1)
-      ybl  = mptsl(:,2)
-!     -----------------------------------------------------------
-      end if
-
-      if (optit == 0) then
-         Poutu = Pinu
-         Poutl = Pinl
-      end if
-
-      end subroutine 
 
 
 !********************************************************************
@@ -496,16 +334,16 @@
 !********************************************************************
 !     Subroutine that returns weighted 2-norm
 !********************************************************************
-      subroutine compnorm(l,npts,lesc,x,y,wtv,pts,norm)
+      subroutine compnorm(l,npts,segnum,lesc,sder,x,y,wtv,pts,norm)
       implicit none 
-      integer, intent(in) :: l,npts
-      real(kind=8), intent(in) :: lesc
+      integer, intent(in) :: l,npts,segnum
+      real(kind=8), intent(in) :: lesc,sder 
       real(kind=8), dimension(l),      intent(in) :: x,y,wtv
       real(kind=8), dimension(npts,2), intent(in) :: pts
       real(kind=8), intent(out) :: norm
 !    
       integer :: i,j 
-      real(kind=8) :: dist,minv,dydx,dy,dx
+      real(kind=8) :: dist,minv,dydx,dy,dx,dyd,dxd,dydxd,dydx2
       
       norm = 0.0 
       do i = 1,l
@@ -518,6 +356,22 @@
          end do
          norm = norm + minv*wtv(i) 
       end do
+      ! Include a large constraint on the magnitude of the second der.
+      if (segnum .eq. 2) then 
+         ! Need to actually compute the second derivative
+         ! This time we are looking at first part
+         dx   = pts(2,1) - pts(1,1) 
+         dy   = pts(2,2) - pts(1,2)  
+         dydx = dy/dx  
+         dxd  = pts(3,1) - pts(2,1) 
+         dyd  = pts(3,2) - pts(2,2)
+         dydxd= dyd/dxd 
+         dydx2= (dydxd - dydx)/dx
+         !write(*,*) dydx2 
+         norm = norm + 10000.0*abs(sder-dydx2) 
+      end if 
+
+
       ! Include a component that puts a constraint on the slope at the
       ! leading edge  
       dy = pts(2,2) - pts(1,2)
@@ -530,9 +384,10 @@
 !********************************************************************
 !     Subroutine that returns gradient vector 
 !********************************************************************
-      subroutine compgrad(l,N,npts,lesc,x,y,wtv,ttemp,Pin,gradvec)
-      integer, intent(in) :: l,N,npts 
-      real(kind=8), intent(in) :: lesc
+      subroutine compgrad(l,N,npts,segnum,lesc,sder,
+     &                    x,y,wtv,ttemp,Pin,gradvec)
+      integer, intent(in) :: l,N,npts,segnum 
+      real(kind=8), intent(in) :: lesc,sder
       real(kind=8), dimension(l),      intent(in) :: x,y,wtv
       real(kind=8), dimension(2,N),    intent(in) :: Pin
       real(kind=8), dimension(npts,N), intent(in) :: ttemp
@@ -544,12 +399,12 @@
       real(kind=8),dimension(2,N) :: Ptemp,gradtemp
       real(kind=8),dimension(npts,2) :: pts
       stepsize = 1e-8
-  
+
       gradtemp = 0.0D0
       gradvec  = 0.0D0 
 
       pts = matmul(ttemp,transpose(Pin))   
-      call compnorm(l,npts,lesc,x,y,wtv,pts,orignorm) 
+      call compnorm(l,npts,segnum,lesc,sder,x,y,wtv,pts,orignorm) 
 
       ! only need to index 2,N-1 to skip first and last point 
       do j = 2,N-1
@@ -557,7 +412,7 @@
             Ptemp      = Pin
             Ptemp(i,j) = Pin(i,j) + Pin(i,j)*stepsize 
             pts        = matmul(ttemp,transpose(Ptemp))
-            call compnorm(l,npts,lesc,x,y,wtv,pts,norm)
+            call compnorm(l,npts,segnum,lesc,sder,x,y,wtv,pts,norm)
             ! write(*,*) norm,i,j
             dy = norm - orignorm
             dx = Pin(i,j)*stepsize
@@ -585,7 +440,7 @@
       real(kind=8) :: gradmag 
 
       gradmag = 0.0 
-      do j = 1,N
+      do j = 1,N  
          do i = 1,2
             gradmag = gradmag + gradvec(i,j)**2
          end do
@@ -601,11 +456,11 @@
 !********************************************************************
 !     Subroutine that returns quasi-newton step direction 
 !********************************************************************
-      subroutine compqn(opiter,l,N,npts,lesc,x,y,wtv,ttemp,Pin,Hk,
-     &                   pveck,fltgrdk,stepdir)
+      subroutine compqn(opiter,l,N,npts,segnum,lesc,sder,
+     &                  x,y,wtv,ttemp,Pin,Hk,pveck,fltgrdk,stepdir)
       implicit none 
-      integer, intent(in) :: opiter,l,N,npts 
-      real(kind=8), intent(in) :: lesc
+      integer, intent(in) :: opiter,l,N,npts,segnum 
+      real(kind=8), intent(in) :: lesc,sder 
       real(kind=8), dimension(l),      intent(in) :: x,y,wtv
       real(kind=8), dimension(2,N),    intent(in) :: Pin
       real(kind=8), dimension(npts,N), intent(in) :: ttemp
@@ -629,7 +484,7 @@
          tmpr(i,i) = 1.0D0 
       end do 
 
-      call compgrad(l,N,npts,lesc,x,y,wtv,ttemp,Pin,gradvec)
+      call compgrad(l,N,npts,segnum,lesc,sder,x,y,wtv,ttemp,Pin,gradvec)
       !pts = matmul(ttemp,transpose(Pin))      
       !call compnorm(l,npts,lesc,x,y,wtv,pts,orignorm)
 
@@ -682,10 +537,10 @@
 !********************************************************************
 !     Subroutine that computes linesearch given gradient vector 
 !********************************************************************
-      subroutine linesearch(l,N,npts,lesc,x,y,
+      subroutine linesearch(l,N,npts,segnum,lesc,sder,x,y,
      &                      wtv,ttemp,Pin,gradvec,Pout)
-      integer, intent(in) :: l,N,npts 
-      real(kind=8), intent(in) :: lesc
+      integer, intent(in) :: l,N,npts,segnum
+      real(kind=8), intent(in) :: lesc,sder
       real(kind=8), dimension(l),      intent(in) :: x,y,wtv
       real(kind=8), dimension(2,N),    intent(in) :: Pin,gradvec
       real(kind=8), dimension(npts,N), intent(in) :: ttemp
@@ -701,7 +556,7 @@
       stepfrac = 0.85D0 
   
       pts = matmul(ttemp,transpose(Pin))   
-      call compnorm(l,npts,lesc,x,y,wtv,pts,orignorm) 
+      call compnorm(l,npts,segnum,lesc,sder,x,y,wtv,pts,orignorm) 
 !
       do j = 1,N
          do i = 1,2
@@ -709,7 +564,7 @@
          end do
       end do 
       pts = matmul(ttemp,transpose(Ptemp))   
-      call compnorm(l,npts,lesc,x,y,wtv,pts,norm) 
+      call compnorm(l,npts,segnum,lesc,sder,x,y,wtv,pts,norm) 
       
       
       do while ( norm > orignorm )
@@ -720,7 +575,7 @@
             end do
          end do 
          pts = matmul(ttemp,transpose(Ptemp))   
-         call compnorm(l,npts,lesc,x,y,wtv,pts,norm) 
+         call compnorm(l,npts,segnum,lesc,sder,x,y,wtv,pts,norm) 
       end do 
       Pout = Ptemp
       !write(*,*) norm    
