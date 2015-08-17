@@ -368,7 +368,7 @@
          dydxd= dyd/dxd 
          dydx2= (dydxd - dydx)/dx
          !write(*,*) dydx2 
-         norm = norm + 10000.0*abs(sder-dydx2) 
+         norm = norm + 0.0001*abs(sder-dydx2) 
       end if 
 
 
