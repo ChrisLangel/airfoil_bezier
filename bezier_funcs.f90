@@ -1,4 +1,4 @@
-      sqbroutine bezier_opt_main( lu,ll,N,ptsu,ptsl,optit,otyp,lesc,Hk,
+      subroutine bezier_opt_main( lu,ll,N,ptsu,ptsl,optit,otyp,lesc,Hk,
      &                            xu,yu,xl,yl,wtu,wtl,pdis,Pinu,Pinl,
      &                            Poutu,Poutl,xbu,ybu,xbl,ybl) 
       implicit none
@@ -35,6 +35,7 @@
       pcte = pdis(3)
       lep  = pdis(4)
       tep  = pdis(5) 
+     
 
       ! get the polynomial basis in matrix form 
       call bernstein_matrix(N,a)
@@ -74,14 +75,14 @@
       
       ! generate an (npts x N) matrix [t^N,...,t,1]  
       call tmatrix(tu,ptsu,N,tmatu)
-      ttempu  = matmul(tmatu, transpose(a)  )  
+      ttempu  = matmul(tmatu, transpose(a)   )  
       mptsu   = matmul(ttempu,transpose(Pinu))            
       xbu  = mptsu(:,1)
       ybu  = mptsu(:,2)
 
 
       call tmatrix(tl,ptsl,N,tmatl)
-      ttempl = matmul(tmatl, transpose(a)  )  
+      ttempl = matmul(tmatl, transpose(a)   )  
       mptsl   = matmul(ttempl,transpose(Pinl))            
       xbl  = mptsl(:,1)
       ybl  = mptsl(:,2)
@@ -90,7 +91,7 @@
       if (otyp == 1) then 
       Ptemp = Pinu
       do i = 1,optit
-        call compgrad(lu,N,ptsu,lesc,xu,yu,wtu,ttempu,Ptemp,gradvec)
+        call compgrad(lu,N,ptsu,lesc,xu,yu,wtu,ttempu,Ptemp,gradvec) 
         call linesearch(lu,N,ptsu,lesc,
      &                  xu,yu,wtu,ttempu,Ptemp,gradvec,Poutu)
         Ptemp = Poutu
@@ -397,13 +398,34 @@
             call compnorm(l,npts,lesc,x,y,wtv,pts,norm) 
             dy = norm - orignorm
             dx = Pin(i,j)*stepsize
-            gradvec(i,j) = dy/dx 
+            if ((j .eq. 2) .and. (i .eq. 1)) then
+               gradvec(i,j) = 0.0D0
+            else
+               gradvec(i,j) = dy/dx
+            end if 
          end do 
       end do
-
+      ! For this version, set the derivative of the x coordinate of the 
+      ! second control point to zero  
+      !gradvec(1,2) = 0.0D0 
       ! normalize gradient vector 
+      call normgrad(N,gradvec)
+
+      end subroutine 
+
+
+!********************************************************************
+!     Subroutine that normalizes the gradient vector 
+!********************************************************************
+      subroutine normgrad(N,gradvec)
+      implicit none 
+      integer,intent(in) :: N
+      real(kind=8), dimension(2,N), intent(inout) :: gradvec
+      integer :: i,j
+      real(kind=8) :: gradmag 
+
       gradmag = 0.0 
-      do j = 1,N
+      do j = 1,N  
          do i = 1,2
             gradmag = gradmag + gradvec(i,j)**2
          end do
@@ -414,7 +436,8 @@
          end do
       end do 
 
-      end subroutine 
+      end subroutine
+
 
 !********************************************************************
 !     Subroutine that returns quasi-newton step direction 

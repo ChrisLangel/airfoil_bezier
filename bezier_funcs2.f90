@@ -368,7 +368,7 @@
          dydxd= dyd/dxd 
          dydx2= (dydxd - dydx)/dx
          !write(*,*) dydx2 
-         norm = norm + 0.0001*abs(sder-dydx2) 
+         !norm = norm + 0.0001*abs(sder-dydx2) 
       end if 
 
 
@@ -430,7 +430,7 @@
       end subroutine 
 
 !********************************************************************
-!     Subroutine that normalizes the  
+!     Subroutine that normalizes the gradient vector 
 !********************************************************************
       subroutine normgrad(N,gradvec)
       implicit none 

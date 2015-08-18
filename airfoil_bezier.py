@@ -199,17 +199,23 @@ class plotwindow( wx.Frame ):
             self.parent.del_cpts()
             self.parent.cpshown = False
             if self.u_or_l == 'u':
-                self.parent.Poutu[0][self.cpind] = event.xdata 
-                self.parent.Poutu[1][self.cpind] = event.ydata 
+                if self.cpind == 1:
+                   self.parent.Poutu[1][self.cpind] = event.ydata 
+                else: 
+                   self.parent.Poutu[0][self.cpind] = event.xdata 
+                   self.parent.Poutu[1][self.cpind] = event.ydata 
             else:
-                self.parent.Poutl[0][self.cpind] = event.xdata 
-                self.parent.Poutl[1][self.cpind] = event.ydata 
+                if self.cpind == 1:
+                    self.parent.Poutl[1][self.cpind] = event.ydata  
+                else:
+                    self.parent.Poutl[0][self.cpind] = event.xdata 
+                    self.parent.Poutl[1][self.cpind] = event.ydata 
             self.parent.show_cpts( event )                
 
     def on_release( self,event ):    
         if self.movecp:
         # this bit of code redraws the bezier curve after moving a control point 
-            self.parent.itopt = 0
+            self.parent.itopt  = 0
             self.parent.redraw = True
             self.parent.gen_bez( event )
         self.movecp = False               
@@ -230,7 +236,7 @@ class PlotWindow(plotwindow):
 
 class PointDistribution( wx.Frame ):
     def __init__( self, parent ):
-        wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = "Point Diststribution", pos = wx.DefaultPosition, size = wx.Size( 380,480 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+        wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = "Point Diststribution", pos = wx.DefaultPosition, size = wx.Size( 380,520 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
         self.Bind(wx.EVT_CLOSE, self.on_close)
         BoxSizer01 = wx.BoxSizer( wx.VERTICAL )
         
@@ -251,6 +257,16 @@ class PointDistribution( wx.Frame ):
         self.text5          = wx.StaticText(self,-1,label='------------ Choose initial control point spacing-------------')
         self.check_equi     = wx.CheckBox(self, -1, label = 'Constant Spacing')
         self.check_sder     = wx.CheckBox(self, -1, label = 'Cluster by magnitude of 2nd Derivative ')
+        
+        self.example_text7  = wx.StaticText(self, label='Min')
+        self.example_text8  = wx.StaticText(self, label='Max')
+        
+        self.sdermax       = wx.Slider(self, wx.ID_ANY, size=wx.Size(175,-1),value=20,
+                                       style = wx.SL_HORIZONTAL)     
+        hbox6 =  wx.BoxSizer( wx.HORIZONTAL )  
+        hbox6.Add( self.example_text7, 0, wx.ALIGN_CENTER | wx.ALL, 5 )   
+        hbox6.Add( self.sdermax,      0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
+        hbox6.Add( self.example_text8, 0, wx.ALIGN_CENTER | wx.ALL, 5 )  
         
         self.text6          = wx.StaticText(self,-1,label='------------------ Choose optimizer type -------------------')
         self.check_grad     = wx.CheckBox(self, -1, label = 'Gradient Descent')
@@ -283,6 +299,7 @@ class PointDistribution( wx.Frame ):
         BoxSizer01.Add( self.text5, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.Add( self.check_equi, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.Add( self.check_sder, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( hbox6, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.AddSpacer(20)     
         BoxSizer01.Add( self.text6, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.Add( self.check_grad, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
@@ -427,12 +444,8 @@ class MainFrame ( wx.Frame ):
         self.resetwt       = wx.Button(self, wx.ID_ANY,  "Reset",
                                        wx.DefaultPosition )  
         
-        self.example_text6 = wx.StaticText(self, label='Flatten Leading Edge')
-        self.example_text7 = wx.StaticText(self, label='Min')
-        self.example_text8 = wx.StaticText(self, label='Max')
-        
-        self.flatnose      = wx.Slider(self, wx.ID_ANY, size=wx.Size(175,-1),value=10,
-                                       style = wx.SL_HORIZONTAL)         
+        #self.example_text6 = wx.StaticText(self, label='Flatten Leading Edge')
+    
                                                                     
 
         self.saveline    = wx.TextCtrl(self, -1, value='bez_coords.txt',
@@ -479,10 +492,7 @@ class MainFrame ( wx.Frame ):
         hbox5.AddSpacer(10)
         hbox5.Add( self.show_der,   wx.ALIGN_CENTER | wx.ALL, 5 )     
         
-        hbox6 =  wx.BoxSizer( wx.HORIZONTAL )  
-        hbox6.Add( self.example_text7, 0, wx.ALIGN_CENTER | wx.ALL, 5 )   
-        hbox6.Add( self.flatnose,      0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
-        hbox6.Add( self.example_text8, 0, wx.ALIGN_CENTER | wx.ALL, 5 )  
+
         
         hbox7  = wx.BoxSizer( wx.HORIZONTAL )  
         hbox7.Add( self.numpoints, wx.ALIGN_CENTER | wx.ALL, 5 )
@@ -531,12 +541,9 @@ class MainFrame ( wx.Frame ):
         vbox1.Add(self.bez_clear,     0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5)  
         vbox1.Add(hbox5,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
-        vbox1.AddSpacer(10) 
+        vbox1.AddSpacer(30) 
         vbox1.Add(hbox3,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
-        vbox1.AddSpacer(10)  
-        vbox1.Add(self.example_text6, 0, wx.ALIGN_CENTER | wx.ALL, 1 )
-        vbox1.Add(hbox6,              0, wx.ALIGN_CENTER | wx.ALL, 1 ) 
-        vbox1.AddSpacer(20) 
+        vbox1.AddSpacer(30) 
         vbox1.Add(hbox4,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.Add(hbox8,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.Add(hbox9,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
@@ -609,7 +616,8 @@ class MainFrame ( wx.Frame ):
            self.split_coords()
            self.plotwin.axes.plot(self.xu, self.yu, 'ko') 
            self.plotwin.axes.plot(self.xl, self.yl, 'ko') 
-           self.plotwin.axes.plot(self.xu,self.yu,'g--',self.xl,self.yl,'g--')      
+           self.plotwin.axes.plot(self.xu,self.yu,'g--',self.xl,self.yl,'g--') 
+           self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
            self.plotwin.canvas.draw() 
            self.wtu = [1.0 for i in range(len(self.xu))]
            self.wtl = [1.0 for i in range(len(self.xl))]
@@ -686,7 +694,8 @@ class MainFrame ( wx.Frame ):
             else:
                 udis,ldis = self.distform( self.xu,self.yu ),self.distform( self.xl,self.yl )
             upct   = udis/(udis+ldis)
-            self.ptsu = int(upct*npts)
+            print upct 
+            self.ptsu = int(round((upct*npts))) 
             self.ptsl = npts - self.ptsu
             print self.ptsu, self.ptsl
             
@@ -705,20 +714,22 @@ class MainFrame ( wx.Frame ):
            # Look for initial estimate for control points, upper surface first 
            Pinu    = [[0.0 for i in range(self.N)] for j in range(2)]
            Pinl    = [[0.0 for i in range(self.N)] for j in range(2)]
-#           # End Coordinates
-           Pinu[0][self.N-1] = self.xu[-1]
-           Pinu[1][self.N-1] = self.yu[-1]
-           Pinl[0][self.N-1] = self.xl[-1]
-           Pinl[1][self.N-1] = self.yl[-1]
+
            # if we are using the second derivative to space CPs         
            if self.pointwin.check_sder.GetValue():
                self.get_p0()
-               for i in range(len(self.Pinux)-2):
-                   Pinu[0][i+1] = self.Pinux[i+1]
-                   Pinu[1][i+1] = 1.2*numpy.interp(self.Pinux[i+1],self.xu,self.yu )
-               for i in range(len(self.Pinlx)-2):
-                   Pinl[0][i+1] = self.Pinlx[i+1]
-                   Pinl[1][i+1] = 1.2*numpy.interp(self.Pinlx[i+1],self.xl,self.yl )
+               Pinu    = [[0.0 for i in range(len(self.Pinux))] for j in range(2)]
+               Pinl    = [[0.0 for i in range(len(self.Pinlx))] for j in range(2)]
+               Pinu[0][:] = self.Pinux 
+               Pinl[0][:] = self.Pinlx
+               Pinu[1][0] = self.yu[0] 
+               Pinu[1][1] = numpy.amax(self.yu)
+               Pinl[1][0] = self.yl[0]
+               Pinl[1][1] = numpy.amin(self.yl)
+               for i in range(len(self.Pinux)-3):
+                   Pinu[1][i+2] = 1.2*numpy.interp(self.Pinux[i+2],self.xu,self.yu )
+               for i in range(len(self.Pinlx)-3):
+                   Pinl[1][i+2] = 1.2*numpy.interp(self.Pinlx[i+2],self.xl,self.yl )    
            else:  #even spacing                   
                xmin,xmax = numpy.amin( self.xu ), numpy.amax( self.xu )
                # The first spacing will be the smallest 
@@ -739,7 +750,13 @@ class MainFrame ( wx.Frame ):
                for i in range(self.N-3):
                    Pinl[0][i+2] = xmin+firstsp + initsp*(i+1)    
                    Pinl[1][i+2] = 1.1*numpy.interp((xmin+firstsp + initsp*(i+1)),self.xl,self.yl )           
-           
+           # End Coordinates
+           Pinu[0][-1] = self.xu[-1]
+           Pinu[1][-1] = self.yu[-1]
+           Pinl[0][-1] = self.xl[-1]
+           Pinl[1][-1] = self.yl[-1]   
+           #print Pinu
+           #print Pinl
 
            # see if we are using existing control points
            if (((self.restart.GetValue() or self.noiter.GetValue()) and self.canrs)
@@ -747,11 +764,13 @@ class MainFrame ( wx.Frame ):
                Pinl = self.Poutl
                Pinu = self.Poutu
                self.redraw = False
-
+               
            # get weighting factor forconstraining the slope of the leading edge            
-           mod20     = int(self.flatnose.GetValue())/20
-           real20    = float(self.flatnose.GetValue())/20.0
-           le_scale  = real20*10.0**( -( 5 - mod20 ) ) 
+           #mod20     = int(self.flatnose.GetValue())/20
+           #real20    = float(self.flatnose.GetValue())/20.0
+           #le_scale  = real20*10.0**( -( 5 - mod20 ) ) 
+           
+           le_scale  = 0.0
            
            self.load_sp()   
            Hk = numpy.identity(self.N*2)
@@ -764,7 +783,7 @@ class MainFrame ( wx.Frame ):
            self.Poutu,self.Poutl,self.xbu,self.ybu,self.xbl,self.ybl = bezier_opt_main(self.ptsu,
                                              self.ptsl,self.itopt,otyp,le_scale,Hk,self.xu,self.yu,
                                              self.xl,self.yl,self.wtu,self.wtl,self.pdis,Pinu,Pinl)      
-                                            
+
            self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')
 	   self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
            self.plotwin.canvas.draw() 
@@ -792,19 +811,19 @@ class MainFrame ( wx.Frame ):
         dydx2   = numpy.divide(ddy,ddx)
         return dydx,dydx2 
 
-    def compmag( self,x,y,dydx2,max2d):
+    def compmag( self,x,y,dydx2,max2d ):
         tot = 0.0
         for i in range(len(dydx2)):
             dydx2[i] = abs(dydx2[i])
             if dydx2[i] > max2d: dydx2[i] = max2d
-            ds = ((x[i+1]-x[i])**2 + ( y[i+1]-y[i])**2 )**0.5
+            ds = ((x[i+1]-x[i])**2 + (y[i+1]-y[i])**2)**0.5
             tot += dydx2[i]*ds 
         return tot
         
         
     def setpts( self,x,y,dydx2,tot,N ):
-        P0     = [0.0]            
-        ptsrm  = N - 2
+        P0     = [ x[0], x[0] ]            
+        ptsrm  = N - 3
         thresh = tot/ptsrm
         ucur   = 0.0          
         ilast  = 0
@@ -828,7 +847,7 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------ 
     def get_p0( self ):
         # set a max for the second derivative
-        max2d   = 7.0 
+        max2d  = (self.pointwin.sdermax.GetValue() / 10.0)
         # compute derivatives 
         dydxu, dydx2u = self.compders( self.xu, self.yu )
         dydxl, dydx2l = self.compders( self.xl, self.yl )
@@ -913,6 +932,7 @@ class MainFrame ( wx.Frame ):
             self.plotwin.axes.plot(self.xl, self.yl, 'ko') 
             self.plotwin.axes.plot(self.xu,self.yu,'g--',self.xl,self.yl,'g--')  
             self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')
+            self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
             if self.cpshown:
                 self.cpshown = False
                 self.show_cpts( event )
