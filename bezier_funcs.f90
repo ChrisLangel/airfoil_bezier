@@ -1,6 +1,6 @@
       subroutine bezier_opt_main( lu,ll,N,ptsu,ptsl,optit,otyp,lesc,Hk,
      &                            xu,yu,xl,yl,wtu,wtl,pdis,Pinu,Pinl,
-     &                            Poutu,Poutl,xbu,ybu,xbl,ybl) 
+     &                            Poutu,Poutl,xbu,ybu,xbl,ybl,norm) 
       implicit none
       integer, intent(in) :: lu,ll,N,ptsu,ptsl,optit,otyp
       real(kind=8), intent(in) :: lesc
@@ -12,9 +12,10 @@
       real(kind=8), dimension(ptsu), intent(out) :: xbu,ybu
       real(kind=8), dimension(ptsl), intent(out) :: xbl,ybl
       real(kind=8), dimension(2,N),  intent(out) :: Poutu,Poutl 
+      real(kind=8),                  intent(out) :: norm
       ! variables used in subroutine
       integer :: i,j,mpts
-      real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep
+      real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep,normtemp
       real(kind=8), dimension(ptsu,N) :: ttempu,tmatu
       real(kind=8), dimension(N,N)    :: a
       real(kind=8), dimension(ptsu,2) :: mptsu 
@@ -29,7 +30,9 @@
       real(kind=8), dimension(:,:), allocatable :: mat,mtemp,dpts
       ! Initialize both Quasi-Newton Matrices
       Hkl = Hk
-      Hku = Hk 
+      Hku = Hk
+      ! Initialize norm
+      norm = 0.0D0  
       ! Store info about spacing  
       pcle = pdis(2)
       pcte = pdis(3)
@@ -119,6 +122,8 @@
       ybu  = mptsu(:,2)
 !     -----------------------------------------------------------
       end if 
+      call compnorm(lu,ptsu,lesc,xu,yu,wtu,mptsu,normtemp) 
+      norm = norm + normtemp 
 
       call tmatrix(tl,ptsl,N,tmatl)
       ttempl = matmul(tmatl, transpose(a)  ) 
@@ -152,10 +157,13 @@
       mptsl   = matmul(ttempl,transpose(Ptemp))            
       xbl  = mptsl(:,1)
       ybl  = mptsl(:,2)
+      
 !     -----------------------------------------------------------
       end if
 
-
+      call compnorm(ll,ptsl,lesc,xl,yl,wtl,mptsl,normtemp) 
+      norm = norm + normtemp 
+      
       if (optit == 0) then
          Poutu = Pinu
          Poutl = Pinl

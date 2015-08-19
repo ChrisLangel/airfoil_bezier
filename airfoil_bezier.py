@@ -261,6 +261,8 @@ class PointDistribution( wx.Frame ):
         self.example_text7  = wx.StaticText(self, label='Min')
         self.example_text8  = wx.StaticText(self, label='Max')
         
+        self.opt_p0         = wx.CheckBox(self, -1, label = 'Optimize initial control point spacing')
+        
         self.sdermax       = wx.Slider(self, wx.ID_ANY, size=wx.Size(175,-1),value=20,
                                        style = wx.SL_HORIZONTAL)     
         hbox6 =  wx.BoxSizer( wx.HORIZONTAL )  
@@ -272,7 +274,7 @@ class PointDistribution( wx.Frame ):
         self.check_grad     = wx.CheckBox(self, -1, label = 'Gradient Descent')
         self.check_qn       = wx.CheckBox(self, -1, label = 'Quasi-Newton')                
            
-        self.ok_button  = wx.Button( self, wx.ID_ANY, "OK",
+        self.ok_button      = wx.Button( self, wx.ID_ANY, "OK",
                                        wx.DefaultPosition, wx.DefaultSize, 0 )       
         
         hbox1 =       wx.BoxSizer( wx.HORIZONTAL )
@@ -300,20 +302,22 @@ class PointDistribution( wx.Frame ):
         BoxSizer01.Add( self.check_equi, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.Add( self.check_sder, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.Add( hbox6, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
-        BoxSizer01.AddSpacer(20)     
+        BoxSizer01.Add( self.opt_p0, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
+        BoxSizer01.AddSpacer(10)     
         BoxSizer01.Add( self.text6, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.Add( self.check_grad, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         BoxSizer01.Add( self.check_qn, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         BoxSizer01.AddSpacer(10)    
         BoxSizer01.Add(self.ok_button, 0, wx.ALIGN_CENTER | wx.ALL, 5  )
         
-        self.check_auto.Bind(  wx.EVT_CHECKBOX, self.on_auto)
-        self.check_clust.Bind( wx.EVT_CHECKBOX, self.on_clust)
-        self.check_equi.Bind(  wx.EVT_CHECKBOX, self.on_eq)
-        self.check_sder.Bind(  wx.EVT_CHECKBOX, self.on_sder)
-        self.check_grad.Bind(  wx.EVT_CHECKBOX, self.on_grad)
-        self.check_qn.Bind(    wx.EVT_CHECKBOX, self.on_qn)
-        self.ok_button.Bind(   wx.EVT_BUTTON, self.on_close)
+        self.check_auto.Bind(  wx.EVT_CHECKBOX, self.on_auto  )
+        self.check_clust.Bind( wx.EVT_CHECKBOX, self.on_clust )
+        self.check_equi.Bind(  wx.EVT_CHECKBOX, self.on_eq    )
+        self.check_sder.Bind(  wx.EVT_CHECKBOX, self.on_sder  )
+        self.check_grad.Bind(  wx.EVT_CHECKBOX, self.on_grad  )
+        self.check_qn.Bind(    wx.EVT_CHECKBOX, self.on_qn    )
+        self.ok_button.Bind(   wx.EVT_BUTTON,   self.on_close )
+        #self.opt_p0.Bind(      wx.EVT_CHECKBOX, self.on_opt   )
                 
         self.check_clust.SetValue( True )
         self.check_sder.SetValue(  True )
@@ -370,7 +374,7 @@ class PointDistribution( wx.Frame ):
             self.check_grad.SetValue( False )
         else:          
             self.check_qn.SetValue( True )
-        
+                    
     def on_close( self, event ): 
          self.Hide()
          
@@ -552,7 +556,7 @@ class MainFrame ( wx.Frame ):
 
         self.cfile_button.Bind( wx.EVT_BUTTON,   self.sel_file     )
         self.load_button.Bind(  wx.EVT_BUTTON,   self.on_load      )
-        self.bez_button.Bind(   wx.EVT_BUTTON,   self.gen_bez      )
+        self.bez_button.Bind(   wx.EVT_BUTTON,   self.opt_bez      )
         self.weight.Bind(       wx.EVT_SPINCTRL, self.chgwt        )
         self.bez_clear.Bind(    wx.EVT_BUTTON,   self.rm_bcurves   )
         self.control_show.Bind( wx.EVT_BUTTON,   self.show_cpts    )
@@ -700,6 +704,20 @@ class MainFrame ( wx.Frame ):
             print self.ptsu, self.ptsl
             
             
+    def opt_bez( self, event ):
+        if self.pointwin.opt_p0.GetValue():
+            minnorm = 9999.9
+            for i in range(10):
+                self.pointwin.sdermax.SetValue( (i+1)*10.0 )
+                norm = self.gen_bez( event )
+                if norm < minnorm: minnorm,ind = norm,i
+            self.rm_bcurves(event)
+            self.pointwin.sdermax.SetValue( (ind+1)*10.0 )
+            norm = self.gen_bez( event )
+            self.pointwin.opt_p0.SetValue(False)
+        else:
+            norm = self.gen_bez( event )
+
 # ------------------------------------------------------------------------     
 # Function that actually calls the fortran routine to generate the bezier curves 
 # ------------------------------------------------------------------------       
@@ -755,8 +773,6 @@ class MainFrame ( wx.Frame ):
            Pinu[1][-1] = self.yu[-1]
            Pinl[0][-1] = self.xl[-1]
            Pinl[1][-1] = self.yl[-1]   
-           #print Pinu
-           #print Pinl
 
            # see if we are using existing control points
            if (((self.restart.GetValue() or self.noiter.GetValue()) and self.canrs)
@@ -765,11 +781,6 @@ class MainFrame ( wx.Frame ):
                Pinu = self.Poutu
                self.redraw = False
                
-           # get weighting factor forconstraining the slope of the leading edge            
-           #mod20     = int(self.flatnose.GetValue())/20
-           #real20    = float(self.flatnose.GetValue())/20.0
-           #le_scale  = real20*10.0**( -( 5 - mod20 ) ) 
-           
            le_scale  = 0.0
            
            self.load_sp()   
@@ -780,7 +791,7 @@ class MainFrame ( wx.Frame ):
            else: 
                otyp = 0 
                
-           self.Poutu,self.Poutl,self.xbu,self.ybu,self.xbl,self.ybl = bezier_opt_main(self.ptsu,
+           self.Poutu,self.Poutl,self.xbu,self.ybu,self.xbl,self.ybl,norm = bezier_opt_main(self.ptsu,
                                              self.ptsl,self.itopt,otyp,le_scale,Hk,self.xu,self.yu,
                                              self.xl,self.yl,self.wtu,self.wtl,self.pdis,Pinu,Pinl)      
 
@@ -795,7 +806,8 @@ class MainFrame ( wx.Frame ):
            if self.cpshown:
                 self.show_cpts( event )
                 self.show_cpts( event )
-                
+           return norm  
+                            
 
     def distform( self,x,y ):
         temp = 0.0
