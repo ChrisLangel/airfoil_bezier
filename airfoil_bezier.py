@@ -1,19 +1,13 @@
 #!/usr/bin/python
 import wx
 import matplotlib
-import subprocess
 matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-
-from matplotlib.backends.backend_wx import NavigationToolbar2Wx
-
-from subprocess import Popen
-from pylab import figure, legend 
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.widgets import Cursor
+from matplotlib.backends.backend_wx    import NavigationToolbar2Wx
+from subprocess                        import Popen
+from matplotlib.figure                 import Figure
 import numpy,os
-from bezier_funcs import *
+from bezier_funcs                      import *
 
 
 # ------------------------------------------------------------------------
@@ -400,6 +394,7 @@ class MainFrame ( wx.Frame ):
         self.cpshown  = False
         self.dershown = False
         self.redraw   = False
+        self.printc   = False 
         BoxSizer01 = wx.BoxSizer( wx.VERTICAL )
         # add all the wx widgets to this class 
         self.fileline    = wx.TextCtrl(self, -1,
@@ -729,6 +724,15 @@ class MainFrame ( wx.Frame ):
            self.N = self.order.GetValue() 
            if self.noiter.GetValue() == False and self.redraw == False:
                self.itopt = self.optits.GetValue()
+           # This is called when the print coords function is called
+           
+           if self.printc:
+               self.itopt  = 0
+               mpts        = 1000000
+               self.printc = False  
+               self.redraw = True
+           else: mpts =10000 
+               
            # Look for initial estimate for control points, upper surface first 
            Pinu    = [[0.0 for i in range(self.N)] for j in range(2)]
            Pinl    = [[0.0 for i in range(self.N)] for j in range(2)]
@@ -792,7 +796,7 @@ class MainFrame ( wx.Frame ):
                otyp = 0 
                
            self.Poutu,self.Poutl,self.xbu,self.ybu,self.xbl,self.ybl,norm = bezier_opt_main(self.ptsu,
-                                             self.ptsl,self.itopt,otyp,le_scale,Hk,self.xu,self.yu,
+                                             self.ptsl,self.itopt,mpts,otyp,le_scale,Hk,self.xu,self.yu,
                                              self.xl,self.yl,self.wtu,self.wtl,self.pdis,Pinu,Pinl)      
 
            self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')
@@ -984,7 +988,9 @@ class MainFrame ( wx.Frame ):
                     savef = True
             else:
                 savef = True
-            if savef == True:            
+            if savef == True:      
+                self.printc = True
+                self.gen_bez(event)
                 fd        = os.open(filetitle, os.O_RDWR|os.O_CREAT )
                 xout,yout = [],[]
                 xout.extend( self.xbl[::-1] )
@@ -1014,7 +1020,7 @@ class MainFrame ( wx.Frame ):
                     savef = True
             else:
                 savef = True
-            if savef == True:            
+            if savef == True:
                 fd        = os.open(filetitle, os.O_RDWR|os.O_CREAT )
                 xout,yout = [],[]
                 xout.extend( self.Poutu[0] )

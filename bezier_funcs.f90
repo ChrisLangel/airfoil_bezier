@@ -1,8 +1,8 @@
-      subroutine bezier_opt_main( lu,ll,N,ptsu,ptsl,optit,otyp,lesc,Hk,
-     &                            xu,yu,xl,yl,wtu,wtl,pdis,Pinu,Pinl,
-     &                            Poutu,Poutl,xbu,ybu,xbl,ybl,norm) 
+      subroutine bezier_opt_main( lu,ll,N,ptsu,ptsl,optit,mpts,otyp,
+     &                            lesc,Hk,xu,yu,xl,yl,wtu,wtl,pdis,
+     &                   Pinu,Pinl,Poutu,Poutl,xbu,ybu,xbl,ybl,norm) 
       implicit none
-      integer, intent(in) :: lu,ll,N,ptsu,ptsl,optit,otyp
+      integer, intent(in) :: lu,ll,N,ptsu,ptsl,optit,mpts,otyp
       real(kind=8), intent(in) :: lesc
       real(kind=8), dimension(5),    intent(in)  :: pdis 
       real(kind=8), dimension(lu),   intent(in)  :: xu,yu,wtu
@@ -14,7 +14,7 @@
       real(kind=8), dimension(2,N),  intent(out) :: Poutu,Poutl 
       real(kind=8),                  intent(out) :: norm
       ! variables used in subroutine
-      integer :: i,j,mpts
+      integer :: i,j
       real(kind=8) :: pcte,pcle,lep,tep,rlep,rtep,normtemp
       real(kind=8), dimension(ptsu,N) :: ttempu,tmatu
       real(kind=8), dimension(N,N)    :: a
@@ -52,7 +52,7 @@
       end if 
       ! This should help with making the leading edge spacing constant
       ! *************************************************************
-      mpts = 15000
+      ! mpts = 15000
       allocate( tms(mpts),tx(mpts),ty(mpts) )  
       allocate( mat(mpts,N), mtemp(mpts,N), dpts(mpts,2) ) 
       ! Get an initial equi-spaced vector with many points
