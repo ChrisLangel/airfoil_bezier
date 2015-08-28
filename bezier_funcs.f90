@@ -350,16 +350,26 @@
       real(kind=8), intent(out) :: norm
 !    
       integer :: i,j 
-      real(kind=8) :: dist,minv,dydx,dy,dx
+      real(kind=8) :: dist,distp,minv,dydx,dy,dx
+      logical :: cont
       
-      norm = 0.0 
+      norm = 0.0
+      j    = 2
       do i = 1,l
          minv = 999999.0D0
-         do j = 1,npts
+         cont = .true.
+         distp= 999.9D0
+         ! go back one index each iteration   
+         j = j - 1 
+         do while (cont .eqv. .true.) 
             dist = (x(i)-pts(j,1))**2 + (y(i)-pts(j,2))**2 
-            if (dist < minv) then
-               minv = dist
+            if (dist > distp) then
+               cont = .false.
+               minv = distp
+               j    = j - 1 
             end if 
+            j = j+1
+            distp = dist 
          end do
          norm = norm + minv*wtv(i) 
       end do
