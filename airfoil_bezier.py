@@ -482,14 +482,14 @@ class MainFrame ( wx.Frame ):
         hbox3.Add( self.resetwt,  0,      wx.ALIGN_CENTER | wx.ALL, 5 ) 
                
         hbox4  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox4.Add( self.saveline, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox4.Add( self.saveline, 0,      wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox4.AddSpacer(10)
-        hbox4.Add( self.save_points,  0, wx.ALIGN_CENTER | wx.ALL, 5 )       
+        hbox4.Add( self.save_points,  0,  wx.ALIGN_CENTER | wx.ALL, 5 )       
 
         hbox5  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox5.Add( self.control_show, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox5.Add( self.control_show,     wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox5.AddSpacer(10)
-        hbox5.Add( self.show_der,   wx.ALIGN_CENTER | wx.ALL, 5 )     
+        hbox5.Add( self.show_der,         wx.ALIGN_CENTER | wx.ALL, 5 )     
         
 
         
@@ -728,7 +728,7 @@ class MainFrame ( wx.Frame ):
            
            if self.printc:
                self.itopt  = 0
-               mpts        = 1000000
+               mpts        = 250000
                self.printc = False  
                self.redraw = True
            else: mpts =10000 
@@ -753,25 +753,21 @@ class MainFrame ( wx.Frame ):
                for i in range(len(self.Pinlx)-3):
                    Pinl[1][i+2] = 1.2*numpy.interp(self.Pinlx[i+2],self.xl,self.yl )    
            else:  #even spacing                   
-               xmin,xmax = numpy.amin( self.xu ), numpy.amax( self.xu )
-               # The first spacing will be the smallest 
-               firstsp = ((xmax-xmin)/float(self.N-1))/2
-               Pinu[0][1]  = xmin + firstsp
-               Pinu[1][1]  = 1.1*numpy.interp((xmin + firstsp),self.xu,self.yu )
-               initsp  =  (xmax-xmin-firstsp)/(self.N-2)
+               xmin,xmax = self.xu[0], self.xu[-1] 
+               Pinu[0][1]  = self.xu[0]
+               Pinu[1][1]  = numpy.amax(self.yu)
+               initsp  =  (xmax-xmin)/(self.N-2)
                for i in range(self.N-3):
-                   Pinu[0][i+2] = xmin+firstsp + initsp*(i+1)    
-                   Pinu[1][i+2] = 1.1*numpy.interp((xmin+firstsp+ initsp*(i+1)),self.xu,self.yu )
+                   Pinu[0][i+2] = xmin + initsp*(i+1)    
+                   Pinu[1][i+2] = 1.1*numpy.interp((xmin+ initsp*(i+1)),self.xu,self.yu )
                #--------------------------------------------------------------------------
-               xmin,xmax = numpy.amin( self.xl ), numpy.amax( self.xl )
-               # The first spacing will be the smallest 
-               firstsp = ((xmax-xmin)/float(self.N-1))/2
-               Pinl[0][1]  = xmin + firstsp
-               Pinl[1][1]  = 1.1*numpy.interp((xmin + firstsp),self.xl,self.yl )
-               initsp  =  (xmax-xmin-firstsp)/(self.N-2)
+               xmin,xmax = self.xl[0], self.xl[-1]
+               Pinl[0][1]  = self.xl[0]
+               Pinl[1][1]  = numpy.amin(self.yl)
+               initsp  =  (xmax-xmin)/(self.N-2)
                for i in range(self.N-3):
-                   Pinl[0][i+2] = xmin+firstsp + initsp*(i+1)    
-                   Pinl[1][i+2] = 1.1*numpy.interp((xmin+firstsp + initsp*(i+1)),self.xl,self.yl )           
+                   Pinl[0][i+2] = xmin + initsp*(i+1)    
+                   Pinl[1][i+2] = 1.1*numpy.interp((xmin + initsp*(i+1)),self.xl,self.yl )           
            # End Coordinates
            Pinu[0][-1] = self.xu[-1]
            Pinu[1][-1] = self.yu[-1]
@@ -838,23 +834,20 @@ class MainFrame ( wx.Frame ):
         
         
     def setpts( self,x,y,dydx2,tot,N ):
+        # First two x-coords are the same 
         P0     = [ x[0], x[0] ]            
+        yder   = [0.0] 
+        for i in range(len(x)-2):        
+            ds = ((x[i+1]-x[i])**2 + (y[i+1]-y[i])**2)**0.5
+            temp = ds*abs(dydx2[i]) + yder[i]
+            yder.append(temp)
         ptsrm  = N - 3
-        thresh = tot/ptsrm
-        ucur   = 0.0          
-        ilast  = 0
-        for i in range(len(x)-2):
-            if ptsrm > 0:
-                ds = ((x[i+1]-x[i])**2 + (y[i+1]-y[i])**2)**0.5
-                ucur += ds*dydx2[i]
-                if ucur > thresh and ilast < i-1 :
-                    P0.append(x[i+1])
-                    ptsrm = ptsrm - 1
-                    tot = tot - ucur
-                    if ptsrm > 0.0:
-                        thresh = tot/(ptsrm+1)
-                    ucur = 0.0
-                    ilast = i 
+        thresh = (0.96*yder[-1])/ptsrm
+        xth    = [thresh]
+        for i in range(ptsrm-1):
+            xth.append( xth[i] + thresh )
+        xintp  = numpy.interp(xth, yder, x[:-1] )
+        P0.extend( xintp )
         P0.append(x[-1])            
         return P0                
 
@@ -863,7 +856,7 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------ 
     def get_p0( self ):
         # set a max for the second derivative
-        max2d  = (self.pointwin.sdermax.GetValue() / 10.0)
+        max2d  = (self.pointwin.sdermax.GetValue() / 5.0)
         # compute derivatives 
         dydxu, dydx2u = self.compders( self.xu, self.yu )
         dydxl, dydx2l = self.compders( self.xl, self.yl )
