@@ -632,15 +632,19 @@ class MainFrame ( wx.Frame ):
         wildcard = "All files (*.*)|*.*"
         dialog = wx.FileDialog(None, "Choose a file", os.getcwd(), "", wildcard, wx.OPEN)	
         if dialog.ShowModal() == wx.ID_OK:
+           self.havefile = True
+           self.plotwin.pointsel = False
+           self.cpshown = False
+           self.plotwin.Show() 
+           self.bcurves = []
            cpfile = open( dialog.GetPath(), 'r' )  
+           self.fileline.SetValue(dialog.GetPath())
            lines  = cpfile.readlines()  
            cpxfull,cpyfull = [],[]
-           ct = 0
-           for line in lines:
-               ct = ct + 1    
-               cpxfull.append( float(line.split()[0]) )
-               cpyfull.append( float(line.split()[1]) )
-           N = int(ct/2)
+           N = int(lines[0])
+           for i in range(1,(N*2 + 1)):
+               cpxfull.append( float(lines[i].split()[0]) )
+               cpyfull.append( float(lines[i].split()[1]) )
            self.Poutu = [[0.0 for i in range(N) ] for j in range(2) ] 
            self.Poutl = [[0.0 for i in range(N) ] for j in range(2) ]                 
            self.Poutu[0][:], self.Poutu[1][:] = cpxfull[:N], cpyfull[:N]
@@ -649,6 +653,24 @@ class MainFrame ( wx.Frame ):
            self.noiter.SetValue( True )           
            self.on_noiter( event )
            self.canrs = True
+           self.restart.SetValue( True )
+           # Now we are loading the coordinates from the control point file
+           self.xfull,self.yfull = [],[]
+           lines2 = lines[(N*2+1):]
+           for line in lines2:
+               self.xfull.append( float(line.split()[0]) )
+               self.yfull.append( float(line.split()[1]) )
+           self.plotwin.axes.cla()         
+           # now try and split the arrays into the upper and lower surface
+           self.split_coords()
+           self.show_cpts( event )
+           self.plotwin.axes.plot(self.xu, self.yu, 'ko') 
+           self.plotwin.axes.plot(self.xl, self.yl, 'ko') 
+           self.plotwin.axes.plot(self.xu,self.yu,'g--',self.xl,self.yl,'g--') 
+           self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
+           self.plotwin.canvas.draw() 
+           self.wtu = [1.0 for i in range(len(self.xu))]
+           self.wtl = [1.0 for i in range(len(self.xl))]
 
 # ------------------------------------------------------------------------
 # Function that is called when the no iteration check mark is selected
@@ -993,6 +1015,7 @@ class MainFrame ( wx.Frame ):
                 for i in range(len(xout)):
                     writestr = ''.join([str(xout[i]),'      ', str(yout[i]),'\n'])   
                     os.write(fd,writestr)
+
     
 
 # ------------------------------------------------------------------------
@@ -1015,6 +1038,9 @@ class MainFrame ( wx.Frame ):
                 savef = True
             if savef == True:
                 fd        = os.open(filetitle, os.O_RDWR|os.O_CREAT )
+                # Write the number of control points as header
+                writestr = ''.join([str(self.N),'\n'])   
+                os.write( fd,writestr )
                 xout,yout = [],[]
                 xout.extend( self.Poutu[0] )
                 yout.extend( self.Poutu[1] )
@@ -1023,6 +1049,16 @@ class MainFrame ( wx.Frame ):
                 for i in range(len(xout)):
                     writestr = ''.join([str(xout[i]),'      ', str(yout[i]),'\n'])   
                     os.write(fd,writestr)
+                # Now write out the coordinates used with these control points
+                xout,yout = [],[]
+                xout.extend( self.xl[::-1] )
+                xout.extend( self.xu[1:] )
+                yout.extend( self.yl[::-1] )
+                yout.extend( self.yu[1:] )
+                for i in range(len(xout)):
+                    writestr = ''.join([str(xout[i]),'      ', str(yout[i]),'\n'])   
+                    os.write(fd,writestr)
+                
      
 # ------------------------------------------------------------------------
 # Function saves the current coordinates to a p3d file 
