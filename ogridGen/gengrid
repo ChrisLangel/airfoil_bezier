@@ -1,0 +1,5 @@
+#!/bin/bash
+
+./addendpoints
+hypgen < hypgen.i
+./addplanes
