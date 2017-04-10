@@ -181,7 +181,7 @@
       integer      :: i 
       real(kind=8) :: space
        
-      space    = 1.0D0/real(npts-1)
+      space   = 1.0D0/real(npts-1)
       t(1)    = 0.0D0
       t(npts) = 1.0D0
       do i = 2,npts-1

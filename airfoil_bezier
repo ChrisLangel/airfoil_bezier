@@ -6,29 +6,34 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.backends.backend_wx    import NavigationToolbar2Wx
 from subprocess                        import Popen
 from matplotlib.figure                 import Figure
-import numpy,os
+import numpy, os
 from bezier_funcs                      import *
+import subprocess as sp
+import shutil
+import sys
+import string
+import time
 
-
+matplotlib.rcParams.update({'font.size': 20})
 # ------------------------------------------------------------------------
-#  Window that displays plots 
+# Window that displays plots
 # ------------------------------------------------------------------------
 
-class plotwindow( wx.Frame ):
+class plotwindow(wx.Frame):
     def __init__(self, parent):
         wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = "Bezier Airfoil Smoother", pos = wx.DefaultPosition, size = wx.Size( 800,500 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
 #        self.Parent = parent
-        self.movecp   = False 
+        self.movecp = False
         self.pointsel = False
         self.Bind(wx.EVT_CLOSE, self.on_close)
         
         # Default figure size, this is part of the frame so when exiting, 
         # the figure does no go away, the frame is just hidden 
         self.fig = Figure(figsize = (14,7), dpi=80)
-        self.fig.subplots_adjust(bottom=0.08)
+        self.fig.subplots_adjust(bottom=0.11)
         self.fig.subplots_adjust(top=0.95)
         self.fig.subplots_adjust(right=0.95)
-        self.fig.subplots_adjust(left=0.05)
+        self.fig.subplots_adjust(left=0.08)
         self.fig.subplots_adjust(wspace=0.15)
         self.axes = self.fig.add_subplot(111)
         
@@ -37,9 +42,9 @@ class plotwindow( wx.Frame ):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.canvas, 1, wx.LEFT | wx.TOP | wx.GROW)
         # connect mouse events to functions  
-        self.fig.canvas.mpl_connect('button_press_event',   self.on_pick   )
-        self.fig.canvas.mpl_connect('scroll_event',         self.on_scroll )
-        self.fig.canvas.mpl_connect('motion_notify_event',  self.on_motion )
+        self.fig.canvas.mpl_connect('button_press_event', self.on_pick)
+        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
+        self.fig.canvas.mpl_connect('motion_notify_event', self.on_motion )
         self.fig.canvas.mpl_connect('button_release_event', self.on_release)
         self.add_toolbar()  # comment this out for no matplotlib toolbar
         
@@ -108,14 +113,14 @@ class plotwindow( wx.Frame ):
         self.axes.set_xlim([event.xdata-new_width*(1-relx),
                     event.xdata+new_width*(relx)])
         self.axes.set_ylim([event.ydata-new_height*(1-rely),
-                            event.ydata+new_height*(rely)])
+                    event.ydata+new_height*(rely)])
         self.canvas.draw()
 
-# ------------------------------------------------------------------------
-# Function that will find closest point to right click  
-# ------------------------------------------------------------------------
 
     def on_rightclick( self, event ):
+        ''' 
+            Function that will find closest point to right click 
+        '''
         x,y = event.xdata, event.ydata
         if self.parent.havefile:
             xus,yus = self.parent.xu, self.parent.yu  
@@ -171,13 +176,13 @@ class plotwindow( wx.Frame ):
                     inl = i
 
             if minup < minl: # we are on upper surface
-                self.cpind   = inup 
+                self.cpind = inup 
                 self.u_or_l = 'u'                      
             else:
-                self.cpind   = inl
+                self.cpind = inl
                 self.u_or_l = 'l'     
             if (minup < 0.04 or minl < 0.04 ):
-                self.movecp   = True
+                self.movecp = True
             
 # ------------------------------------------------------------------------
 # Functions that will move control point on drag
@@ -193,13 +198,13 @@ class plotwindow( wx.Frame ):
             self.parent.del_cpts()
             self.parent.cpshown = False
             if self.u_or_l == 'u':
-                if self.cpind == 1:
+                if self.cpind == 1 or self.cpind == len(self.parent.Poutu[1])-1:
                    self.parent.Poutu[1][self.cpind] = event.ydata 
                 else: 
                    self.parent.Poutu[0][self.cpind] = event.xdata 
                    self.parent.Poutu[1][self.cpind] = event.ydata 
             else:
-                if self.cpind == 1:
+                if self.cpind == 1 or self.cpind == len(self.parent.Poutl[1])-1:
                     self.parent.Poutl[1][self.cpind] = event.ydata  
                 else:
                     self.parent.Poutl[0][self.cpind] = event.xdata 
@@ -227,57 +232,56 @@ class PlotWindow(plotwindow):
         self.parent = parent       
 
 ############################################################################
-
 class PointDistribution( wx.Frame ):
     def __init__( self, parent ):
         wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = "Point Diststribution", pos = wx.DefaultPosition, size = wx.Size( 380,600 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
         self.Bind(wx.EVT_CLOSE, self.on_close)
         BoxSizer01 = wx.BoxSizer( wx.VERTICAL )
         
-        self.text0          = wx.StaticText(self,-1,label='------------ Choose point distribution for curves -------------')
-        self.check_auto     = wx.CheckBox(self, -1, label = 'Constant Spacing')
-        self.check_clust    = wx.CheckBox(self, -1, label = 'Cluster Leading/Trailing Edge')
+        self.text0 = wx.StaticText(self,-1,label='------------ Choose point distribution for curves -------------')
+        self.check_auto = wx.CheckBox(self, -1, label = 'Constant Spacing')
+        self.check_clust = wx.CheckBox(self, -1, label = 'Cluster Leading/Trailing Edge')
         
-        self.pctple         = wx.SpinCtrl( self, -1, min=5,max=40, initial=20, size = (45,-1))
-        self.text1          = wx.StaticText(self,-1,label='% of points clustered in leading')
-        self.pctled         = wx.SpinCtrl( self, -1, min=5,max=30, initial=15, size = (45,-1))
-        self.text2          = wx.StaticText(self,-1,label='%')
+        self.pctple = wx.SpinCtrl( self, -1, min=5,max=40, initial=20, size = (45,-1))
+        self.text1 = wx.StaticText(self,-1,label='% of points clustered in leading')
+        self.pctled = wx.SpinCtrl( self, -1, min=5,max=30, initial=15, size = (45,-1))
+        self.text2 = wx.StaticText(self,-1,label='%')
 
-        self.pctpte         = wx.SpinCtrl( self, -1, min=5,max=40, initial=20, size = (45,-1))
-        self.text3          = wx.StaticText(self,-1,label='% of points clustered in trailing')
-        self.pctted         = wx.SpinCtrl( self, -1, min=5,max=30, initial=15, size = (45,-1))
-        self.text4          = wx.StaticText(self,-1,label='%')
+        self.pctpte = wx.SpinCtrl( self, -1, min=5,max=40, initial=20, size = (45,-1))
+        self.text3 = wx.StaticText(self,-1,label='% of points clustered in trailing')
+        self.pctted = wx.SpinCtrl( self, -1, min=5,max=30, initial=15, size = (45,-1))
+        self.text4 = wx.StaticText(self,-1,label='%')
         
-        self.text5          = wx.StaticText(self,-1,label='------------ Choose initial control point spacing-------------')
-        self.check_equi     = wx.CheckBox(self, -1, label = 'Constant Spacing')
-        self.check_sder     = wx.CheckBox(self, -1, label = 'Cluster by magnitude of 2nd Derivative ')
+        self.text5 = wx.StaticText(self,-1,label='------------ Choose initial control point spacing-------------')
+        self.check_equi = wx.CheckBox(self, -1, label = 'Constant Spacing')
+        self.check_sder = wx.CheckBox(self, -1, label = 'Cluster by magnitude of 2nd Derivative ')
         
-        self.example_text7  = wx.StaticText(self, label='Min')
-        self.example_text8  = wx.StaticText(self, label='Max')
+        self.example_text7 = wx.StaticText(self, label='Min')
+        self.example_text8 = wx.StaticText(self, label='Max')
         
-        self.opt_p0         = wx.CheckBox(self, -1, label = 'Optimize initial control point spacing')
+        self.opt_p0 = wx.CheckBox(self, -1, label = 'Optimize initial control point spacing')
         
-        self.sdermax       = wx.Slider(self, wx.ID_ANY, size=wx.Size(175,-1),value=20,
+        self.sdermax = wx.Slider(self, wx.ID_ANY, size=wx.Size(175,-1),value=20,
                                        style = wx.SL_HORIZONTAL)     
         hbox6 =  wx.BoxSizer( wx.HORIZONTAL )  
         hbox6.Add( self.example_text7, 0, wx.ALIGN_CENTER | wx.ALL, 5 )   
         hbox6.Add( self.sdermax,      0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         hbox6.Add( self.example_text8, 0, wx.ALIGN_CENTER | wx.ALL, 5 )  
         
-        self.text6          = wx.StaticText(self,-1,label='------------------ Choose optimizer type -------------------')
-        self.check_grad     = wx.CheckBox(self, -1, label = 'Gradient Descent')
-        self.check_qn       = wx.CheckBox(self, -1, label = 'Quasi-Newton')                
+        self.text6 = wx.StaticText(self,-1,label='------------------ Choose optimizer type -------------------')
+        self.check_grad = wx.CheckBox(self, -1, label = 'Gradient Descent')
+        self.check_qn = wx.CheckBox(self, -1, label = 'Quasi-Newton')                
            
-        self.ok_button      = wx.Button( self, wx.ID_ANY, "OK",
-                                       wx.DefaultPosition, wx.DefaultSize, 0 )       
+        self.ok_button = wx.Button( self, wx.ID_ANY, "OK",
+                                    wx.DefaultPosition, wx.DefaultSize, 0 )       
         
-        hbox1 =       wx.BoxSizer( wx.HORIZONTAL )
+        hbox1 = wx.BoxSizer( wx.HORIZONTAL )
         hbox1.Add(self.pctple, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         hbox1.Add(self.text1,  0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         hbox1.Add(self.pctled, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         hbox1.Add(self.text2,  0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
                 
-        hbox2 =       wx.BoxSizer( wx.HORIZONTAL )
+        hbox2 = wx.BoxSizer( wx.HORIZONTAL )
         hbox2.Add(self.pctpte, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         hbox2.Add(self.text3,  0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
         hbox2.Add(self.pctted, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
@@ -380,12 +384,314 @@ class PointDisWindow(PointDistribution):
 
 
 ############################################################################
+class XfoilSettings( wx.Frame ):
+    def __init__( self, parent ):
+        wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = "XFoil", pos = wx.DefaultPosition, size = wx.Size( 300,650 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+        self.Bind(wx.EVT_CLOSE, self.on_close)
+        BoxSizer01 = wx.BoxSizer( wx.VERTICAL )
+
+        self.text0          = wx.StaticText(self,-1,label='------------ Set Simulation Parameters -------------')
+
+        self.reynolds_text = wx.StaticText(self,label='Reynolds Number')
+        self.reynolds_inp   = wx.TextCtrl(self, -1,
+            value='1e6',
+            size=wx.Size(150,-1),
+            style=wx.TE_PROCESS_ENTER)
+
+        self.mach_text = wx.StaticText(self,label='Mach Number')
+        self.mach_inp   = wx.TextCtrl(self, -1,
+            value='0.2',
+            size=wx.Size(150,-1),
+            style=wx.TE_PROCESS_ENTER)
+
+        self.ncrit_text = wx.StaticText(self,label='N-crit for Transition Model')
+        self.ncrit_inp   = wx.TextCtrl(self, -1,
+            value='9',
+            size=wx.Size(150,-1),
+            style=wx.TE_PROCESS_ENTER)
+
+        self.aoa_text = wx.StaticText(self,label='Angle of Attack')
+        self.aoa_inp   = wx.TextCtrl(self, -1,
+            value='1',
+            size=wx.Size(150,-1),
+            style=wx.TE_PROCESS_ENTER)
+
+        self.run_single_button = wx.Button(self, wx.ID_ANY,  "Run Single Angle of Attack",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )     
+
+
+        self.aoar_text = wx.StaticText(self,label='AoA Range [start, end, interval]')
+        self.aoar_inp  = wx.TextCtrl(self, -1,
+            value='-4, 4, 1',
+            size=wx.Size(150,-1),
+            style=wx.TE_PROCESS_ENTER)
+
+        self.name_text = wx.StaticText(self,label='Name (needed for polar)')
+        self.name_inp   = wx.TextCtrl(self, -1,
+            value='Airfoil Name',
+            size=wx.Size(200,-1),
+            style=wx.TE_PROCESS_ENTER)
+        self.run_polar_button = wx.Button(self, wx.ID_ANY,  "Run Polar",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )  
+
+        self.show_polar_button = wx.Button(self, wx.ID_ANY,  "Show Polars",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )  
+
+        self.ok_button = wx.Button( self, wx.ID_ANY, "OK",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )       
+
+        BoxSizer01.AddSpacer(20)       
+        BoxSizer01.Add( self.text0, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.reynolds_text, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.reynolds_inp, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.AddSpacer(5)      
+        BoxSizer01.Add( self.mach_text, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.mach_inp, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.AddSpacer(5)      
+        BoxSizer01.Add( self.ncrit_text, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.ncrit_inp, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.AddSpacer(5)      
+        BoxSizer01.Add( self.aoa_text, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.aoa_inp, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add(self.run_single_button, 0, wx.ALIGN_CENTER | wx.ALL, 5  )
+        BoxSizer01.AddSpacer(10)    
+        BoxSizer01.Add( self.aoar_text, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.aoar_inp, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.name_text, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add( self.name_inp, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        BoxSizer01.Add(self.run_polar_button, 0, wx.ALIGN_CENTER | wx.ALL, 5  )
+        BoxSizer01.AddSpacer(5)
+        BoxSizer01.Add(self.show_polar_button, 0, wx.ALIGN_CENTER | wx.ALL, 5  )
+        BoxSizer01.AddSpacer(5)
+        BoxSizer01.Add(self.ok_button, 0, wx.ALIGN_CENTER | wx.ALL, 5  )
+        
+        self.ok_button.Bind(wx.EVT_BUTTON, self.on_close )
+        self.run_single_button.Bind(wx.EVT_BUTTON, self.run_xfoil_single)
+        self.run_polar_button.Bind(wx.EVT_BUTTON, self.run_xfoil_polar)
+        self.show_polar_button.Bind(wx.EVT_BUTTON, self.show_polar)
+
+
+        self.SetSizer( BoxSizer01 )
+        self.Layout()
+
+    def show_polar(self, event):
+        self.parent.polarwin.Show()
+
+    def run_xfoil_single(self, event):
+        self.run_xfoil(event, False)
+
+    def run_xfoil_polar(self, event):
+        self.run_xfoil(event, True)
+
+    def write_coords_xfoil(self, event):
+        self.Parent.noiter.SetValue( True )
+        self.Parent.on_noiter( event )
+        self.Parent.gen_bez(event, True)
+        if os.path.exists('xfoilcoords_temp'):
+            os.remove('xfoilcoords_temp')
+        fd = os.open('xfoilcoords_temp', os.O_RDWR|os.O_CREAT )
+        xout,yout = [],[]
+        xout.extend( self.Parent.xbl[::-1] )
+        xout.extend( self.Parent.xbu[1:] )
+        yout.extend( self.Parent.ybl[::-1] )
+        yout.extend( self.Parent.ybu[1:] )
+        for i in range(len(xout)):
+            writestr = ''.join([str(xout[i]),'      ', str(yout[i]),'\n'])   
+            os.write(fd,writestr)
+
+
+    # airfoil is a string representing the coordinate file 
+    def run_xfoil( self, event, polar ):
+        self.write_coords_xfoil(event)
+        airfoil = 'xfoilcoords_temp'
+        Rey = self.reynolds_inp.GetValue()
+        if polar:
+            alpha = self.aoar_inp.GetValue()
+        else:
+            alpha = self.aoa_inp.GetValue()
+        mach = self.mach_inp.GetValue()
+        ncrit = self.ncrit_inp.GetValue()
+        # Initiate subproccess  
+        ps = sp.Popen(['xfoil'],
+                  stdin=sp.PIPE,
+                  stdout=None,
+                  stderr=None)
+        # define function to give commands to xfoil 
+        def issueCmd(cmd,echo=True):
+            ps.stdin.write(cmd+'\n')
+            if echo: print cmd
+            
+        # load coordinates and enter OPER mode
+        issueCmd( ''.join(['load ', airfoil]) ) 
+        issueCmd( ' ' ) 
+        issueCmd( 'oper' ) 
+        # Set new iteration limit
+        issueCmd( 'iter 50' ) 
+        issueCmd( 'visc' )
+        # Enter Reynolds number   r>
+        issueCmd( str(Rey) )
+        # mach number 
+        issueCmd( ''.join([ 'm', str(mach)  ]) ) 
+        issueCmd( 'VPAR' )
+        issueCmd( ''.join([ 'N', str(ncrit) ]) )
+        issueCmd( ' ' )         
+        if polar:
+            issueCmd( 'Pacc')
+            issueCmd( ' ' )   
+            issueCmd( ' ' )   
+            issueCmd( ''.join(['Aseq', str(alpha)]))
+            issueCmd( 'pwrt' )
+            time.sleep( 1.0 )
+            issueCmd( ''.join([self.name_inp.GetValue(), '_polar.txt']) )
+            issueCmd( ' ' ) 
+            issueCmd( ' ' ) 
+            issueCmd( 'quit' ) 
+            # also write the coordinates to a file
+            self.parent.saveline.SetValue(''.join([self.name_inp.GetValue(), '.txt']))
+            self.parent.numpoints.SetValue(300)
+            self.parent.print_coords(event)
+        else:
+            #issueCmd( ' ' ) 
+            issueCmd( ''.join(['ALFA', str(alpha)]))
+
+
+        
+    def on_close( self, event ): 
+         self.Hide()
+
+class XfoilSettingsWindow(XfoilSettings):
+      def __init__(self, parent):
+        XfoilSettings.__init__(self, parent)
+        self.parent = parent                     
+
+
+
+class polarwindow(wx.Frame):
+    def __init__(self, parent):
+        wx.Frame.__init__ ( self, parent, id = wx.ID_ANY, title = "Polar Viewer", pos = wx.DefaultPosition, size = wx.Size( 800,500 ), style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
+#        self.Parent = parent
+        self.Bind(wx.EVT_CLOSE, self.on_close)
+        
+        # Default figure size, this is part of the frame so when exiting, 
+        # the figure does no go away, the frame is just hidden 
+        self.fig = Figure(figsize = (14,7), dpi=80)
+        self.fig.subplots_adjust(bottom=0.11)
+        self.fig.subplots_adjust(top=0.95)
+        self.fig.subplots_adjust(right=0.95)
+        self.fig.subplots_adjust(left=0.08)
+        self.fig.subplots_adjust(wspace=0.15)
+        self.axes1 = self.fig.add_subplot(121)
+        self.axes2 = self.fig.add_subplot(122)
+        self.axes1.set_ylabel('$C_l$')
+        self.axes1.set_xlabel('$C_d$')
+        self.axes2.set_xlabel('$\\alpha$ (deg)')
+        self.labels = []
+        
+        # Use canvas to embed figure in frame
+        self.canvas = FigureCanvas(self, -1, self.fig)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.canvas, 1, wx.LEFT | wx.TOP | wx.GROW)
+
+        self.add_polar_button = wx.Button(self, wx.ID_ANY,  "Add Polar",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )  
+
+        self.clear_polar_button = wx.Button(self, wx.ID_ANY,  "Clear",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )  
+
+        hbox1  = wx.BoxSizer( wx.HORIZONTAL )  
+        hbox1.Add( self.add_polar_button, wx.ALIGN_CENTER | wx.ALL, 5 )          
+        hbox1.Add( self.clear_polar_button,  wx.ALIGN_CENTER | wx.ALL, 5 )  
+
+        self.sizer.Add(hbox1,  0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        self.add_polar_button.Bind(wx.EVT_BUTTON, self.add_polar)
+        self.clear_polar_button.Bind(wx.EVT_BUTTON, self.clear_polar)
+
+
+        # connect mouse events to functions  
+        # self.fig.canvas.mpl_connect('scroll_event', self.on_scroll )
+
+        self.add_toolbar()  # comment this out for no matplotlib toolbar
+        
+        self.SetSizer(self.sizer)
+        self.Fit()
+        #self.Layout()
+            
+    def add_polar( self,event ):
+        wildcard = "All files (*.*)|*.*"
+        dialog = wx.FileDialog(None, "Choose a file", os.getcwd(), "", wildcard, wx.OPEN)   
+        if dialog.ShowModal() == wx.ID_OK:
+            pfile = open( dialog.GetPath(), 'r' )  
+            name = os.path.basename(dialog.GetPath())
+            self.labels.append(name)
+            lines  = pfile.readlines()  
+            cl, cd, aoa, ct = [], [], [], 0
+            for line in lines:
+                if ct > 11:
+                    aoa.append(line.split()[0])
+                    cl.append(line.split()[1])
+                    cd.append(line.split()[2])
+                ct+=1
+            self.axes1.plot(cd, cl)
+            self.axes2.plot(aoa, cl)
+            self.axes1.set_ylabel('$C_l$')
+            self.axes1.set_xlabel('$C_d$')
+            self.axes2.set_xlabel('$\\alpha$ (deg)')
+            self.axes2.legend(self.labels, loc=4)
+            self.canvas.draw()
+
+
+
+    def clear_polar( self,event ):
+         self.axes1.cla()
+         self.axes2.cla()
+         self.canvas.draw()
+         self.labels = []
+# ----------------------------------------------------------------------
+#   Adds standard matplotlib toolbar to frame
+# ----------------------------------------------------------------------
+
+    def add_toolbar(self):
+        self.toolbar = NavigationToolbar2Wx(self.canvas)
+        self.toolbar.Realize()
+        if wx.Platform == '__WXMAC__':
+            # Mac platform (OSX 10.3, MacPython) does not seem to cope with
+            # having a toolbar in a sizer. This work-around gets the buttons
+            # back, but at the expense of having the toolbar at the top
+            self.SetToolBar(self.toolbar)
+        else:
+            # On Windows platform, default window size is incorrect, so set
+            # toolbar width to figure width.
+            tw, th = self.toolbar.GetSizeTuple()
+            fw, fh = self.canvas.GetSizeTuple()
+            # By adding toolbar in sizer, we are able to put it at the bottom
+            # of the frame - so appearance is closer to GTK version.
+            # As noted above, doesn't work for Mac.
+            self.toolbar.SetSize(wx.Size(fw, th))
+            self.sizer.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
+        # update the axes menu on the toolbar
+        self.toolbar.update()
+
+
+    def showwin( self, event ):
+        self.canvas.draw()
+
+    def on_close( self, event ):
+        self.Hide() 
+
+
+class PolarWindow(polarwindow):
+      def __init__(self, parent):
+        polarwindow.__init__(self, parent)
+        self.parent = parent       
+
+
+############################################################################
 # The actual frame for the application 
 class MainFrame ( wx.Frame ):
     def __init__( self, parent ):
         wx.Frame.__init__( self, parent, id = wx.ID_ANY, 
                            title = "Bezier Airfoil Smoother", pos = wx.DefaultPosition, 
-                           size = wx.Size( 350,700 ),
+                           size = wx.Size( 350,760 ),
                            style = wx.DEFAULT_FRAME_STYLE|wx.TAB_TRAVERSAL )
           
         self.havefile = False      
@@ -442,10 +748,7 @@ class MainFrame ( wx.Frame ):
         
         self.resetwt       = wx.Button(self, wx.ID_ANY,  "Reset",
                                        wx.DefaultPosition )  
-        
-        #self.example_text6 = wx.StaticText(self, label='Flatten Leading Edge')
-    
-                                                                    
+                                                          
 
         self.saveline    = wx.TextCtrl(self, -1, value='bez_coords.txt',
             size=wx.Size(150,-1),
@@ -465,7 +768,20 @@ class MainFrame ( wx.Frame ):
         self.save_p3d   = wx.Button(self, wx.ID_ANY,  "Save to p3d",
                                        wx.DefaultPosition, wx.DefaultSize, 0 )                                        
                                        
+        self.xfoil_button = wx.Button(self, wx.ID_ANY,  "Run XFIOL Sims",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.reset_button = wx.Button(self, wx.ID_ANY,  "Set Coords to Bez Curve ",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )
 
+
+        self.inc_te_button = wx.Button(self, wx.ID_ANY,  "Increase TE Thickness",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.dec_te_button = wx.Button(self, wx.ID_ANY,  "Decrease TE Thickness",
+                                       wx.DefaultPosition, wx.DefaultSize, 0 )
+
+        tebox = wx.BoxSizer(wx.HORIZONTAL)
+        tebox.Add(self.inc_te_button, wx.ALIGN_CENTER | wx.ALL, 5)
+        tebox.Add(self.dec_te_button, wx.ALIGN_CENTER | wx.ALL, 5)
 
         # Set up how everything is laid out 
         hbox1  = wx.BoxSizer( wx.HORIZONTAL )  
@@ -474,29 +790,27 @@ class MainFrame ( wx.Frame ):
 
         hbox2  = wx.BoxSizer( wx.HORIZONTAL )  
         hbox2.Add( self.example_text3, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
-        hbox2.Add( self.restart,       0, wx.ALIGN_RIGHT  | wx.ALL, 5 )  
+        hbox2.Add( self.restart, 0, wx.ALIGN_RIGHT  | wx.ALL, 5 )  
         
         hbox3  = wx.BoxSizer( wx.HORIZONTAL )  
         hbox3.Add( self.example_text5, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
-        hbox3.Add( self.weight,  0,       wx.ALIGN_CENTER | wx.ALL, 5 ) 
-        hbox3.Add( self.resetwt,  0,      wx.ALIGN_CENTER | wx.ALL, 5 ) 
+        hbox3.Add( self.weight, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
+        hbox3.Add( self.resetwt, 0, wx.ALIGN_CENTER | wx.ALL, 5 ) 
                
         hbox4  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox4.Add( self.saveline, 0,      wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox4.Add( self.saveline, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox4.AddSpacer(10)
-        hbox4.Add( self.save_points,  0,  wx.ALIGN_CENTER | wx.ALL, 5 )       
+        hbox4.Add( self.save_points, 0, wx.ALIGN_CENTER | wx.ALL, 5 )       
 
         hbox5  = wx.BoxSizer( wx.HORIZONTAL )  
-        hbox5.Add( self.control_show,     wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox5.Add( self.control_show, wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox5.AddSpacer(10)
-        hbox5.Add( self.show_der,         wx.ALIGN_CENTER | wx.ALL, 5 )     
-        
-
+        hbox5.Add( self.show_der, wx.ALIGN_CENTER | wx.ALL, 5 )     
         
         hbox7  = wx.BoxSizer( wx.HORIZONTAL )  
         hbox7.Add( self.numpoints, wx.ALIGN_CENTER | wx.ALL, 5 )
         hbox7.AddSpacer(10)
-        hbox7.Add( self.point_button,   wx.ALIGN_CENTER | wx.ALL, 5 )    
+        hbox7.Add( self.point_button, wx.ALIGN_CENTER | wx.ALL, 5 )    
         
         
         hbox8  = wx.BoxSizer( wx.HORIZONTAL )  
@@ -519,6 +833,11 @@ class MainFrame ( wx.Frame ):
         hbox11.AddSpacer(10)
         hbox11.Add( self.noiter,  0, wx.ALIGN_CENTER | wx.ALL, 5 )   
 
+        hbox12  = wx.BoxSizer( wx.HORIZONTAL )  
+        hbox12.Add( self.xfoil_button, 0, wx.ALIGN_CENTER | wx.ALL, 5 )
+        hbox12.AddSpacer(2)
+        hbox12.Add( self.reset_button,  0, wx.ALIGN_CENTER | wx.ALL, 5 )   
+
         vbox1  = wx.BoxSizer( wx.VERTICAL )
         #vbox1.AddSpacer(10)
         vbox1.Add(self.example_text1, 0, wx.ALIGN_CENTER | wx.ALL, 1)    
@@ -533,19 +852,23 @@ class MainFrame ( wx.Frame ):
         vbox1.Add(hbox7,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5)  
         vbox1.Add(hbox2,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
-        vbox1.Add(hbox11,            0, wx.ALIGN_CENTER | wx.ALL, 1 )
+        vbox1.Add(hbox11,             0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5) 
         vbox1.Add( self.bez_button,   0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5)
         vbox1.Add(self.bez_clear,     0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(5)  
         vbox1.Add(hbox5,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
+        vbox1.AddSpacer(5)  
+        vbox1.Add(tebox,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.AddSpacer(30) 
         vbox1.Add(hbox3,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
-        vbox1.AddSpacer(30) 
+        vbox1.AddSpacer(20) 
         vbox1.Add(hbox4,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.Add(hbox8,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
         vbox1.Add(hbox9,              0, wx.ALIGN_CENTER | wx.ALL, 1 )
+        vbox1.AddSpacer(30) 
+        vbox1.Add(hbox12,  0, wx.ALIGN_CENTER | wx.ALL, 1 )
         
         BoxSizer01.Add( vbox1, 0, wx.ALIGN_CENTER | wx.ALL, 25 )
 
@@ -563,7 +886,12 @@ class MainFrame ( wx.Frame ):
         self.save_p3d.Bind(     wx.EVT_BUTTON,   self.on_p3d       ) 
         self.load_cp.Bind(      wx.EVT_BUTTON,   self.on_loadcp    )
         self.noiter.Bind(       wx.EVT_CHECKBOX, self.on_noiter    )
-       
+        self.xfoil_button.Bind( wx.EVT_BUTTON,   self.open_xfoil   )
+        self.reset_button.Bind( wx.EVT_BUTTON,   self.on_reset     )
+        self.inc_te_button.Bind( wx.EVT_BUTTON,  self.inc_te       )
+        self.dec_te_button.Bind( wx.EVT_BUTTON,  self.dec_te       )
+
+
         self.SetSizer( BoxSizer01 ) 
         self.Layout()
 
@@ -572,6 +900,34 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------
     def set_dis( self,event ):
         self.pointwin.Show() 
+
+    def open_xfoil( self,event ):
+        self.xfoilwin.Show() 
+
+    def inc_te( self,event ):
+        self.move_te(event, True)
+
+    def dec_te( self,event ):
+        self.move_te(event, False)
+
+    def move_te( self,event,inc ):
+        if inc:
+            self.ycu[-1] = self.ycu[-1] + 0.001
+            self.ycl[-1] = self.ycl[-1] - 0.001
+        else:
+            self.ycu[-1] = self.ycu[-1] - 0.001
+            self.ycl[-1] = self.ycl[-1] + 0.001
+        self.gen_bez(event)
+        self.plotwin.axes.cla()
+        self.cpshown = False
+        self.show_cpts(event)
+        self.plotwin.axes.plot(self.xu, self.yu, 'ko') 
+        self.plotwin.axes.plot(self.xl, self.yl, 'ko') 
+        self.plotwin.axes.plot(self.xu,self.yu,'g--',self.xl,self.yl,'g--')  
+        self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')
+        self.plotwin.axes.set_xlim([0.90, 1.05])
+        self.plotwin.axes.set_ylim([-0.02, 0.02])
+        self.plotwin.canvas.draw()
 
 
     def sel_file( self,event ):
@@ -707,9 +1063,12 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------
 # Function that tries to evenly divide points by curvilinear distance 
 # ------------------------------------------------------------------------           
-    def split_pts( self ):
+    def split_pts( self, is_xfoil ):
         if self.havefile:
-            npts   = self.numpoints.GetValue() 
+            if is_xfoil:
+                npts = 300
+            else:
+                npts   = self.numpoints.GetValue() 
             if self.canrs and self.noiter.GetValue() == False: #If we have a curve already, use those coordinates
                 udis,ldis = self.distform( self.xbu,self.ybu ),self.distform( self.xbl,self.ybl )                
             else:
@@ -738,13 +1097,13 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------     
 # Function that actually calls the fortran routine to generate the bezier curves 
 # ------------------------------------------------------------------------       
-    def gen_bez( self,event ):
+    def gen_bez( self, event, is_xfoil=False ):
         self.plotwin.Show()
-        self.split_pts()
+        self.split_pts(is_xfoil)
         if self.havefile:
            self.bezcurve = True
            self.N = self.order.GetValue() 
-           if self.noiter.GetValue() == False and self.redraw == False:
+           if (self.noiter.GetValue() == False and self.redraw == False):
                self.itopt = self.optits.GetValue()
            # This is called when the print coords function is called
            
@@ -762,8 +1121,8 @@ class MainFrame ( wx.Frame ):
            # if we are using the second derivative to space CPs         
            if self.pointwin.check_sder.GetValue():
                self.get_p0()
-               Pinu    = [[0.0 for i in range(len(self.Pinux))] for j in range(2)]
-               Pinl    = [[0.0 for i in range(len(self.Pinlx))] for j in range(2)]
+               Pinu = [[0.0 for i in range(len(self.Pinux))] for j in range(2)]
+               Pinl = [[0.0 for i in range(len(self.Pinlx))] for j in range(2)]
                Pinu[0][:] = self.Pinux 
                Pinl[0][:] = self.Pinlx
                Pinu[1][0] = self.yu[0] 
@@ -818,7 +1177,9 @@ class MainFrame ( wx.Frame ):
                                              self.xl,self.yl,self.wtu,self.wtl,self.pdis,Pinu,Pinl)      
 
            self.plotwin.axes.plot(self.xbu,self.ybu,'b',self.xbl,self.ybl,'b')
-	   self.plotwin.axes.set_aspect( 'equal', 'datalim' ) 
+           self.plotwin.axes.set_aspect( 'equal', 'datalim' )
+           self.plotwin.axes.set_xlabel('$x/c$')
+           self.plotwin.axes.set_ylabel('$y/c$')
            self.plotwin.canvas.draw() 
            # save the index of the curves 
            temp = len(self.plotwin.axes.lines) - 1
@@ -975,8 +1336,8 @@ class MainFrame ( wx.Frame ):
                 dydxu,dydx2u = self.compders( self.xbu, self.ybu )
                 dydxl,dydx2l = self.compders( self.xbl, self.ybl )                
                 self.plotwin.axes.cla()
-                self.plotwin.axes.plot(self.xbu[:-1],dydxu,'g',  self.xbl[:-1],dydxl,'g--')
-                self.plotwin.axes.plot(self.xbu[:-2],dydx2u,'b', self.xbl[:-2],dydx2l, 'b--')
+                self.plotwin.axes.plot(self.xbu[:-1],dydxu,'g',  self.xbl[:-1],dydxl,'b')
+                self.plotwin.axes.plot(self.xbu[:-2],dydx2u,'g--', self.xbl[:-2],dydx2l, 'b--')
                 labels = ['$dy/dx$ (upper)', '$dy/dx$ (lower)','$d^2 y/dx^2$ (upper)', '$d^2y/dx^2$ (lower)']
                 self.plotwin.axes.legend( labels )
                 self.plotwin.axes.set_ylim( [-4,4] )
@@ -984,6 +1345,25 @@ class MainFrame ( wx.Frame ):
 		self.plotwin.axes.set_aspect( 'auto', 'datalim')
                 self.plotwin.canvas.draw()
                 self.dershown = True
+
+
+    def on_reset( self,event ):
+        if self.canrs:
+            self.noiter.SetValue( True )
+            self.on_noiter( event )
+            self.numpoints.SetValue(100)
+            self.gen_bez(event)
+            self.xu = self.xbu
+            self.yu = self.ybu
+            self.xl = self.xbl
+            self.yl = self.ybl
+            self.wtu = [1.0 for i in range(len(self.xu))]
+            self.wtl = [1.0 for i in range(len(self.xl))]
+            self.numpoints.SetValue(500)
+            # use the derivative function 
+            self.dershown = True
+            self.cpcurves = []
+            self.comp_der(event)
 
 # ------------------------------------------------------------------------
 # Function saves the current coordinates to a file
@@ -1092,7 +1472,7 @@ class MainFrame ( wx.Frame ):
 # ------------------------------------------------------------------------
 # Function that tries to break up airfoil coordinates into upper and lower surface
 # ------------------------------------------------------------------------     
-    def split_coords( self ):  
+    def split_coords(self):  
            xmin,xmax = numpy.amin( self.xfull ), numpy.amax( self.xfull )
            ind = 0 
            mininds,maxinds = [],[] 
@@ -1146,13 +1526,16 @@ class MainFrame ( wx.Frame ):
 class MainApp(MainFrame):
     def __init__(self, parent):
         MainFrame.__init__(self, parent)
-
         bSizer1 = wx.BoxSizer( wx.VERTICAL )
         self.plotwin  = PlotWindow(self)       
         self.pointwin = PointDisWindow(self)
+        self.xfoilwin = XfoilSettingsWindow(self)
+        self.polarwin = PolarWindow(self)
+        self.xfoilwin.Hide()
+        self.polarwin.Hide()
         self.plotwin.Hide() 
         self.pointwin.Hide() 
-        self.SetSizer( bSizer1 )
+        self.SetSizer(bSizer1)
         self.Layout()
         
 
